@@ -7,9 +7,11 @@ requests, and recommends the minimum proof. This repository contains both the **
 
 - **Spec (正本):** [`HumanProof/`](HumanProof/) — start at [`HumanProof/README.md`](HumanProof/README.md).
   Requirements: [`HumanProof/04_DEVELOPMENT/Requirements.md`](HumanProof/04_DEVELOPMENT/Requirements.md).
-- **App:** Next.js (App Router, TypeScript). Current increment: the **AI analysis slice**
-  (input → analysis → recommendation), with the PII shield, structured-output validation, and
-  server-side policy enforcement. Proof issuance / consent / verify / revoke are the next increment.
+- **App:** Next.js (App Router, TypeScript). Implemented:
+  1. **AI analysis slice** — input → analysis → recommendation, with the PII shield, structured-output
+     validation, and server-side policy enforcement.
+  2. **Proof lifecycle** — consent → Signed Proof (Ed25519, audience-bound, short-lived, pairwise
+     subject) → verify (signature/issuer/audience/expiry/revocation) → revoke → re-verify shows `REVOKED`.
 
 ## Run
 
@@ -44,3 +46,5 @@ npm run build       # next build
 - **Deterministic counting** — requested data is normalized + de-duplicated; `N pieces` is the distinct count (FR-04, D-028).
 - **Server-side policy** — claims restricted to the fixed allowlist, required/optional disjoint, flags limited to detected items, prohibited determinations neutralized (FR-05/07/14).
 - **Actual-only audit** — no fabricated model/cost/logs; MOCK is labelled as MOCK (FR-12, NFR-07).
+- **Signed Proof** — real Ed25519 signatures from a simulated Demo Trusted Issuer; audience-bound,
+  short-lived, pairwise pseudonymous subject; consent-gated; revocable (FR-08/09/10/11/13, D-008/09).

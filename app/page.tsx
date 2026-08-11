@@ -2,6 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { REQUESTED_DATA_CATEGORIES, CATEGORY_LABELS, CLAIM_LABELS, type RequestedDataCategory, type Claim } from "@/lib/claims";
+import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
+
+interface ProofSummary {
+  issuer: string;
+  subject: string;
+  audience: string;
+  claims: Claim[];
+  issued_at: number;
+  expires_at: number;
+  jti: string;
+}
+interface VerifyResult {
+  status: string;
+  checks: { signature: boolean; issuer: boolean; audience: boolean; expiry: boolean; revocation: boolean };
+  claims?: Claim[];
+  subject?: string;
+  expires_at?: number;
+}
 
 const DEMO_TEXT =
   "We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.";
@@ -60,6 +78,14 @@ export default function Page() {
   const [blockedTypes, setBlockedTypes] = useState<string[] | null>(null);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
 
+  // Proof lifecycle state
+  const [consentClaims, setConsentClaims] = useState<Set<Claim>>(new Set());
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [proof, setProof] = useState<ProofSummary | null>(null);
+  const [proofToken, setProofToken] = useState<string | null>(null);
+  const [verify, setVerify] = useState<VerifyResult | null>(null);
+  const [proofError, setProofError] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/provider")
       .then((r) => r.json())
@@ -93,11 +119,76 @@ export default function Page() {
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Analysis failed");
-      setResult(data as AnalyzeResponse);
+      const parsed = data as AnalyzeResponse;
+      setResult(parsed);
+      // seed the proof flow with the recommended minimum proof
+      setConsentClaims(new Set(parsed.analysis.required_claims));
+      setConsentGiven(false);
+      setProof(null);
+      setProofToken(null);
+      setVerify(null);
+      setProofError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function toggleConsentClaim(c: Claim) {
+    setConsentClaims((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  }
+
+  async function issueProof() {
+    setProofError(null);
+    setVerify(null);
+    try {
+      const res = await fetch("/api/proof/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience, consent: consentGiven, consentedClaims: Array.from(consentClaims) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issue failed");
+      setProof(data.proof as ProofSummary);
+      setProofToken(data.token as string);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Issue failed");
+    }
+  }
+
+  async function verifyProofNow() {
+    if (!proofToken) return;
+    setProofError(null);
+    try {
+      const res = await fetch("/api/proof/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: proofToken, expectedAudience: audience }),
+      });
+      setVerify((await res.json()) as VerifyResult);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Verify failed");
+    }
+  }
+
+  async function revokeProof() {
+    if (!proof) return;
+    setProofError(null);
+    try {
+      await fetch("/api/proof/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jti: proof.jti }),
+      });
+      await verifyProofNow(); // re-verify -> should now show REVOKED
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Revoke failed");
     }
   }
 
@@ -318,6 +409,79 @@ export default function Page() {
           )}
         </section>
       </div>
+
+      {result && a && (
+        <section className="card" style={{ marginTop: 20 }}>
+          <h2>Proof request &amp; lifecycle</h2>
+
+          {/* Consent */}
+          <p className="note">
+            Select what to share (default = the recommended minimum proof), give explicit consent, then issue an
+            audience-bound, short-lived Signed Proof from the <strong>Demo Trusted Issuer (simulated)</strong>.
+          </p>
+          <div className="checks">
+            {a.required_claims.concat(a.optional_claims).map((c) => (
+              <label key={c} className="check">
+                <input type="checkbox" checked={consentClaims.has(c)} onChange={() => toggleConsentClaim(c)} />
+                Share: {CLAIM_LABELS[c]}
+              </label>
+            ))}
+          </div>
+          <p className="note" style={{ marginTop: 10 }}>
+            Not shared (stays with you): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
+          </p>
+          <label className="check" style={{ marginTop: 8 }}>
+            <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
+            I consent to share the selected proofs with audience <code>{audience}</code>
+          </label>
+          <div>
+            <button className="primary" onClick={issueProof} disabled={!consentGiven || consentClaims.size === 0}>
+              Issue Signed Proof
+            </button>
+          </div>
+
+          {proofError && <div className="error" style={{ marginTop: 12 }}>{proofError}</div>}
+
+          {/* Issued proof */}
+          {proof && (
+            <div style={{ marginTop: 16 }}>
+              <h2>Issued proof</h2>
+              <div className="audit">
+                <div className="row"><span>Issuer</span><span><code>{proof.issuer}</code></span></div>
+                <div className="row"><span>Subject (pairwise)</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
+                <div className="row"><span>Audience</span><span><code>{proof.audience}</code></span></div>
+                <div className="row"><span>Claims</span><span>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</span></div>
+                <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
+                <div className="row"><span>JTI</span><span><code className="mono">{proof.jti}</code></span></div>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+                <button className="primary" onClick={verifyProofNow}>Verify</button>
+                <button className="primary" onClick={revokeProof} style={{ background: "var(--danger)" }}>Revoke</button>
+              </div>
+            </div>
+          )}
+
+          {/* Verification result */}
+          {verify && (
+            <div style={{ marginTop: 16 }}>
+              <h2>Verification</h2>
+              <div className="headline" style={{ fontSize: 20 }}>
+                <span className={verify.status === "VALID" ? "num" : ""} style={verify.status !== "VALID" ? { color: "var(--danger)" } : undefined}>
+                  {verify.status}
+                </span>
+              </div>
+              <div className="audit">
+                {(["signature", "issuer", "audience", "expiry", "revocation"] as const).map((k) => (
+                  <div className="row" key={k}>
+                    <span>{k}</span>
+                    <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? "pass" : "fail"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
