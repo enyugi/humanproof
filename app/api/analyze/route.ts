@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runAnalysis, AnalyzeError, PiiBlockedError, type AnalyzeInput } from "@/lib/analyze";
+import { runAnalysis, classifyAnalyzeError, type AnalyzeInput } from "@/lib/analyze";
 
 export const runtime = "nodejs";
 
@@ -16,21 +16,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await runAnalysis({
-      serviceName: typeof body.serviceName === "string" ? body.serviceName : undefined,
-      audience: typeof body.audience === "string" ? body.audience : undefined,
-      purposeText: body.purposeText,
-      requestedData: Array.isArray(body.requestedData) ? body.requestedData.filter((x) => typeof x === "string") : [],
-    });
+    const result = await runAnalysis(
+      {
+        serviceName: typeof body.serviceName === "string" ? body.serviceName : undefined,
+        audience: typeof body.audience === "string" ? body.audience : undefined,
+        purposeText: body.purposeText,
+        requestedData: Array.isArray(body.requestedData) ? body.requestedData.filter((x) => typeof x === "string") : [],
+      },
+      undefined,
+      { signal: req.signal }, // propagate client disconnect to the upstream call
+    );
     return NextResponse.json(result);
   } catch (err) {
-    if (err instanceof PiiBlockedError) {
-      // 422 — the request is blocked, nothing was sent to the gateway.
-      return NextResponse.json({ error: err.message, blocked: true, pii_finding_types: err.findingTypes }, { status: 422 });
-    }
-    if (err instanceof AnalyzeError) {
-      return NextResponse.json({ error: err.message }, { status: 422 });
-    }
-    return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
+    const { status, body: resBody } = classifyAnalyzeError(err);
+    return NextResponse.json(resBody, { status });
   }
 }

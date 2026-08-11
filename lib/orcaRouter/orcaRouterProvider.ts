@@ -42,11 +42,13 @@ export class OrcaRouterProvider implements OrcaProvider {
         response_format: { type: "json_object" },
         temperature: 0,
       }),
+      signal: input.signal, // per-call timeout / overall deadline / client disconnect
     });
     const latency_ms = Math.max(1, Date.now() - start);
 
     if (!res.ok) {
-      throw new Error(`OrcaRouter HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+      // Do NOT include the response body, prompt, or Authorization in the error (safe handling).
+      throw new Error(`OrcaRouter HTTP ${res.status}`);
     }
 
     const body = (await res.json()) as {

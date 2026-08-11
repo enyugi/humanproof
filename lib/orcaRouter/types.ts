@@ -28,6 +28,15 @@ export interface OrcaInput {
   sanitizedServiceText: string; // PII-shielded (blocked upstream if not clean)
   requestedDataCategories: string[]; // canonical category NAMES only, never values
   allowlist: readonly string[];
+  signal?: AbortSignal; // aborts the upstream call on per-call timeout, overall deadline, or client disconnect
+}
+
+/** Thrown when an upstream OrcaRouter call is aborted by timeout/deadline (distinct from input errors). */
+export class OrcaTimeoutError extends Error {
+  constructor(message = "Upstream call timed out") {
+    super(message);
+    this.name = "OrcaTimeoutError";
+  }
 }
 
 export interface OrcaProvider {
