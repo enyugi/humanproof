@@ -70,6 +70,16 @@ labelled `MOCK` in the UI (before analysis) and in the audit panel; it never pre
 `https://api.orcarouter.ai/v1` (default model `orcarouter/auto`). The key is server-side only;
 the same validation + policy pipeline applies unchanged.
 
+**Timeouts & the live-demo default (measured 2026-08-11).** Each upstream call has a finite timeout
+(default 12s) and the whole analysis has a 20s deadline; on timeout the API returns a structured
+`504` (`retriable:true`), on an upstream HTTP error `502`, and on client disconnect `499` — never a
+hang. A one-shot real connectivity test found OrcaRouter **reachable and functional but ~55s average
+latency**, which exceeds the deadline, so real Analyze currently returns `504`. Note that aborting
+the request does **not** cancel the upstream work — it still completes and bills. **For the live
+demo, keep the labelled `MOCK` provider by default**; treat the real connection as latency evidence
+until the deadline is raised or gateway latency improves. Zero-PII holds regardless (only the prompt
+and category names are sent). See DECISIONS D-030.
+
 ## Quality gates
 
 ```bash

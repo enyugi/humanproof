@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-11 — Analyze 上流 timeout/deadline + 実 OrcaRouter 疎通実測（D-030）
+
+- 上流呼び出しに有限 timeout(12s)/全体 deadline(20s)/client 切断伝播を実装（504/502/499 分類）
+- 実接続を 1 回だけ確認: 到達・処理・課金するが平均遅延 ~55s で deadline 超過 → 504。abort しても上流は完走・課金（実測 直近30日 req3/10.4K tok/$0.0138）
+- D-030・実装記録を追記。README にライブデモは既定 MOCK 明示・実接続は latency 証跡の運用注記を追加
+- Zero-PII 維持（送信はプロンプト+カテゴリ名のみ、実 PII なし）
+
 ## 2026-08-11 — Proof系 既存状態の安全な移行（4次レビュー・D-029 green確定）
 
 - 旧形式 (`{seedHex,revoked,revAuth}`・0644) の状態ファイルを、seed・期限内失効を保持したまま現行形式 (0600) へ in-place atomic 移行

@@ -92,3 +92,14 @@
 
 - **`chmod` 失敗の厳格 fail-closed 化**: 現状 `ensurePerms()`（0644→0600 の権限引き上げ）は best-effort で、chmod 失敗時も health=ok のまま継続する。本番では「秘密状態ファイルを 0600 にできない＝機密性を保証できない」として fail-closed（unavailable 扱い）にすることを検討する。MVP のローカル単一プロセス・デモでは許容。
 - 期限切れ revocation は次回操作時に prune される（在 TTL のみ保持）。これは仕様どおり（期限切れ Proof は EXPIRED になるため失効記録不要）。
+
+## Analyze 上流 timeout / deadline と実 OrcaRouter 疎通実測（2026-08-11・D-030）
+
+**実装**: 各上流呼び出しに per-call timeout（既定 12s, env `ORCAROUTER_TIMEOUT_MS` clamp 可）、分析全体に overall deadline（既定 20s, `ORCAROUTER_DEADLINE_MS`）。`req.signal`（client 切断）を上流へ伝播（`AbortSignal.any`）。schema 不正時のみ deadline 内で最大 1 回 retry。timeout/abort 後は 2 回目を呼ばない。応答分類 `classifyAnalyzeError`: 上流 timeout→**504**（retriable）、上流 HTTP 非成功→**502**（`OrcaUpstreamError`, status のみ・body/prompt/Authorization 非露出）、client 切断→**499**、PII→422、schema→422、その他→500。UI は既存エラー欄で timeout 時のみ一時遅延案内。テスト `tests/analyzeTimeout.test.ts`（14）で never-resolving/timeout/client-abort/retry/上流HTTP/呼び出し回数を検証。
+
+**実接続実測（Analyze 1 回のみ・手動再試行なし）**:
+- 当方観測: **HTTP 504 / time_total ≈ 12.0s**（per-call 12s が発火 → overall 20s 内、retry なし）。
+- OrcaRouter dashboard（直近30日集計）: **request 3 / tokens 10.4K / cost $0.013788 / 平均遅延 ~55.0s**。
+- 結論: **OrcaRouter は到達・処理・課金する**が、平均遅延 ~55s が現行 deadline を超過し**常時 504**。**fetch abort は上流の完走・課金を止めない**（504 は UX のハング防止であってコスト防止ではない）。Zero-PII は維持（送信はシステムプロンプト＋カテゴリ名のみ、実 PII なし）。
+
+**運用判断（現時点）**: ライブデモは既定 **MOCK（明示ラベル）** を用い、実接続は latency の証跡として扱う。実接続をデモ経路に載せるには (a) deadline を実 latency 超に引き上げる（審査で ~1 分待ち・UX 劣化・課金増）か (b) provider 側 latency 改善が必要。**deadline 引き上げ／provider 設定は将来判断**（今回はソース変更なし）。abort が課金を止めない点から、無闇な再試行・連打は費用増に直結する。
