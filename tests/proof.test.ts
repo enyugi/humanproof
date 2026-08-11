@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { issueConsentedProof, verifyProof, encodeProof, type ProofPayload } from "@/lib/proof/proof";
+import { issueConsentedProof, verifyProof, encodeToken, type ProofPayload } from "@/lib/proof/proof";
 import { revoke, _clearRevocations } from "@/lib/proof/revocation";
 import { DEMO_USER_ID } from "@/lib/proof/demoUser";
 import type { Claim } from "@/lib/claims";
@@ -28,7 +28,7 @@ describe("G. Proof lifecycle", () => {
   it("revoked: jti revoked -> REVOKED on re-verify", () => {
     const { token, payload } = issue();
     expect(verifyProof(token, AUD).status).toBe("VALID");
-    revoke(payload.jti);
+    revoke(payload.jti, payload.exp);
     expect(verifyProof(token, AUD).status).toBe("REVOKED");
   });
 
@@ -49,17 +49,18 @@ describe("G. Proof lifecycle", () => {
   });
 
   it("unknown issuer -> UNKNOWN_ISSUER", () => {
+    const now = Math.floor(Date.now() / 1000);
     const forged: ProofPayload = {
+      typ: "proof",
       iss: "did:humanproof:not-trusted",
       sub: "x",
       aud: AUD,
       claims: ["over_18"],
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: now,
+      exp: now + 300,
       jti: "j1",
     };
-    // encodeProof signs with the demo key, but the iss is not in the registry:
-    const r = verifyProof(encodeProof(forged), AUD);
+    const r = verifyProof(encodeToken(forged), AUD);
     expect(r.status).toBe("UNKNOWN_ISSUER");
   });
 
@@ -67,17 +68,16 @@ describe("G. Proof lifecycle", () => {
     const subA1 = issue({ audience: "svc-A" }).payload.sub;
     const subA2 = issue({ audience: "svc-A" }).payload.sub;
     const subB = issue({ audience: "svc-B" }).payload.sub;
-    expect(subA1).toBe(subA2); // stable within audience
-    expect(subA1).not.toBe(subB); // uncorrelatable across audiences
+    expect(subA1).toBe(subA2);
+    expect(subA1).not.toBe(subB);
   });
 });
 
 describe("Consent enforcement (FR-08)", () => {
   it("only consented claims are included", () => {
     const { payload } = issue({ consentedClaims: ["over_18"] });
-    expect(payload.claims).toEqual(["over_18"]); // human_verified withheld
+    expect(payload.claims).toEqual(["over_18"]);
   });
-
   it("non-allowlisted / non-held claims are excluded, not signed in", () => {
     const { payload, excluded_claims } = issue({ consentedClaims: ["over_18", "verified_creator" as Claim] });
     expect(payload.claims).toEqual(["over_18"]);

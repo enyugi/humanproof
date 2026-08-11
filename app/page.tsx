@@ -20,6 +20,14 @@ interface VerifyResult {
   subject?: string;
   expires_at?: number;
 }
+interface ConsentReceipt {
+  receipt: string;
+  audience: string;
+  claims: Claim[];
+  excluded: Claim[];
+  withheld_pii: RequestedDataCategory[];
+  expires_at: number;
+}
 
 const DEMO_TEXT =
   "We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.";
@@ -80,11 +88,22 @@ export default function Page() {
 
   // Proof lifecycle state
   const [consentClaims, setConsentClaims] = useState<Set<Claim>>(new Set());
+  const [receipt, setReceipt] = useState<ConsentReceipt | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
   const [proof, setProof] = useState<ProofSummary | null>(null);
   const [proofToken, setProofToken] = useState<string | null>(null);
   const [verify, setVerify] = useState<VerifyResult | null>(null);
   const [proofError, setProofError] = useState<string | null>(null);
+
+  // Any change to audience or the selected claims invalidates a prior consent receipt: the user
+  // must review + consent to the exact set again before issuance (Problem 1).
+  useEffect(() => {
+    setReceipt(null);
+    setConsentGiven(false);
+    setProof(null);
+    setProofToken(null);
+    setVerify(null);
+  }, [audience, consentClaims]);
 
   useEffect(() => {
     fetch("/api/provider")
@@ -144,14 +163,35 @@ export default function Page() {
     });
   }
 
+  async function reviewConsent() {
+    setProofError(null);
+    setProof(null);
+    setProofToken(null);
+    setVerify(null);
+    setConsentGiven(false);
+    try {
+      const res = await fetch("/api/proof/consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience, claims: Array.from(consentClaims) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Consent failed");
+      setReceipt(data as ConsentReceipt);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Consent failed");
+    }
+  }
+
   async function issueProof() {
+    if (!receipt || !consentGiven) return;
     setProofError(null);
     setVerify(null);
     try {
       const res = await fetch("/api/proof/issue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience, consent: consentGiven, consentedClaims: Array.from(consentClaims) }),
+        body: JSON.stringify({ consentReceipt: receipt.receipt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Issue failed");
@@ -178,13 +218,13 @@ export default function Page() {
   }
 
   async function revokeProof() {
-    if (!proof) return;
+    if (!proofToken) return;
     setProofError(null);
     try {
       await fetch("/api/proof/revoke", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jti: proof.jti }),
+        body: JSON.stringify({ token: proofToken }), // authentic proof token, not a bare id
       });
       await verifyProofNow(); // re-verify -> should now show REVOKED
     } catch (e) {
@@ -414,10 +454,11 @@ export default function Page() {
         <section className="card" style={{ marginTop: 20 }}>
           <h2>Proof request &amp; lifecycle</h2>
 
-          {/* Consent */}
+          {/* Step 1: select + review */}
           <p className="note">
-            Select what to share (default = the recommended minimum proof), give explicit consent, then issue an
-            audience-bound, short-lived Signed Proof from the <strong>Demo Trusted Issuer (simulated)</strong>.
+            Select what to share (default = the recommended minimum proof), then review the server-confirmed set and
+            consent. Issuance is bound to a signed consent receipt, so the proof cannot differ from what you consented
+            to. Signed by the <strong>Demo Trusted Issuer (simulated — not real identity verification)</strong>.
           </p>
           <div className="checks">
             {a.required_claims.concat(a.optional_claims).map((c) => (
@@ -430,17 +471,36 @@ export default function Page() {
           <p className="note" style={{ marginTop: 10 }}>
             Not shared (stays with you): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
           </p>
-          <label className="check" style={{ marginTop: 8 }}>
-            <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
-            I consent to share the selected proofs with audience <code>{audience}</code>
-          </label>
           <div>
-            <button className="primary" onClick={issueProof} disabled={!consentGiven || consentClaims.size === 0}>
-              Issue Signed Proof
+            <button className="primary" onClick={reviewConsent} disabled={consentClaims.size === 0}>
+              Review &amp; consent
             </button>
           </div>
 
           {proofError && <div className="error" style={{ marginTop: 12 }}>{proofError}</div>}
+
+          {/* Step 2: server-confirmed consent receipt -> issue */}
+          {receipt && (
+            <div className="banner ok-banner" style={{ marginTop: 14 }}>
+              <strong>You are about to issue (server-confirmed):</strong>
+              <div style={{ marginTop: 6 }}>Audience: <code>{receipt.audience}</code></div>
+              <div>Claims: {receipt.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
+              {receipt.excluded.length > 0 && (
+                <div>Excluded (not held / not allowlisted): {receipt.excluded.join(", ")}</div>
+              )}
+              <div>Not shared: {receipt.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+              <div className="note" style={{ marginTop: 4 }}>Consent valid until {new Date(receipt.expires_at * 1000).toISOString()}</div>
+              <label className="check" style={{ marginTop: 8 }}>
+                <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
+                I confirm and consent to issue exactly the above
+              </label>
+              <div>
+                <button className="primary" onClick={issueProof} disabled={!consentGiven || receipt.claims.length === 0}>
+                  Issue Signed Proof
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Issued proof */}
           {proof && (

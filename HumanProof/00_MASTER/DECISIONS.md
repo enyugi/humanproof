@@ -33,6 +33,7 @@
 | D-026 | 未検証 | 4件のPIIを2 Proofへ置換すると導入効果が出る | 統合判断 | 漏洩影響、離脱率、コスト等の効果測定が必要 |
 | D-027 | 採用 | LLMへ送るrequested dataは種別名のみとし、実値はblock/maskする | 統合判断 | サービス説明へ実PIIが混入する経路も閉じる |
 | D-028 | 採用 | requested dataを正規カテゴリへ正規化し、同一項目は単一 emit・distinct 件数で数える | 品質監査 | `id_photo`/`face_image`/`raw_identity_document` の二重計上を防ぎ「4 pieces → 2 proofs」の件数を決定論化する (MASTER §4 / Delta §4) |
+| D-029 | 採用 | Proof発行は署名付きconsent receiptに束縛し、TTLはサーバ方針で固定、失効は正当なProofトークンのみ受理、検証は署名後にpayload/claim/期限を厳格検証、鍵とpairwise secretはseedから決定論導出 | セキュリティレビュー | 同意と発行の乖離・TTL外部操作・任意失効/メモリ肥大・不正payload受理・プロセス揮発による検証不安定を防ぐ。Demo Issuer/独自形式/プロセス内失効は本番非準拠として明示 (実装記録: [`../06_RECORDS/Implementation_Notes_2026-08-11.md`](../06_RECORDS/Implementation_Notes_2026-08-11.md)) |
 
 ## 読み方
 

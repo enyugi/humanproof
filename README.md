@@ -10,8 +10,21 @@ requests, and recommends the minimum proof. This repository contains both the **
 - **App:** Next.js (App Router, TypeScript). Implemented:
   1. **AI analysis slice** — input → analysis → recommendation, with the PII shield, structured-output
      validation, and server-side policy enforcement.
-  2. **Proof lifecycle** — consent → Signed Proof (Ed25519, audience-bound, short-lived, pairwise
-     subject) → verify (signature/issuer/audience/expiry/revocation) → revoke → re-verify shows `REVOKED`.
+  2. **Proof lifecycle** — review → signed **consent receipt** → Signed Proof (Ed25519, audience-bound,
+     server-fixed short TTL, pairwise subject) → verify (signature/issuer/audience/expiry/revocation,
+     with strict payload validation) → revoke (by authentic token) → re-verify shows `REVOKED`.
+
+### Proof security model & demo constraints (honest framing)
+
+- **Custom token format** — a compact `base64url(json).base64url(sig)` token, **not** JWT/JWS/VC or any standard.
+- **Demo Trusted Issuer is simulated** — it holds a real Ed25519 keypair but performs no real identity verification.
+- **Deterministic keys** — the issuer keypair and pairwise secret are derived from a seed
+  (`PROOF_ISSUER_SEED` / `PROOF_PAIRWISE_SECRET`) so verification and pairwise subjects are stable across
+  restarts/processes. Without env seeds a **fixed, public demo seed** is used — stable but **not secret**, never an HSM.
+- **Consent binding** — issuance trusts only a signed consent receipt, so a proof can never differ from what was consented.
+- **Server-owned TTL** — clients cannot set the lifetime; proofs are always short-lived (≤ policy), enforced at issue and verify.
+- **Revocation** — accepts only an authentic proof token (no arbitrary ids); stored in-process, pruned by expiry and capped.
+  **In-process only: revocation state resets on restart** (mitigated by the short TTL). Not durable/replicated — out of MVP scope.
 
 ## Run
 

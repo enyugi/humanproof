@@ -1,34 +1,33 @@
 import { NextResponse } from "next/server";
 import { issueConsentedProof } from "@/lib/proof/proof";
-import { isClaim, type Claim } from "@/lib/claims";
+import { verifyConsentReceipt } from "@/lib/proof/consent";
 import { DEMO_USER_ID } from "@/lib/proof/demoUser";
 
 export const runtime = "nodejs";
 
+// Step 2 of issuance: issue a proof for EXACTLY the audience + claims fixed in the signed consent
+// receipt. The client cannot change audience/claims/TTL here (Problems 1 & 2).
 export async function POST(req: Request) {
-  let body: { audience?: string; consentedClaims?: unknown; consent?: boolean; ttlSeconds?: number };
+  let body: { consentReceipt?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-
-  if (body.consent !== true) {
-    return NextResponse.json({ error: "Explicit user consent is required to issue a proof." }, { status: 422 });
-  }
-  if (typeof body.audience !== "string" || body.audience.trim() === "") {
-    return NextResponse.json({ error: "audience is required" }, { status: 400 });
-  }
-  const consentedClaims: Claim[] = Array.isArray(body.consentedClaims) ? body.consentedClaims.filter(isClaim) : [];
-  if (consentedClaims.length === 0) {
-    return NextResponse.json({ error: "At least one consented claim is required." }, { status: 422 });
+  if (typeof body.consentReceipt !== "string" || body.consentReceipt.trim() === "") {
+    return NextResponse.json({ error: "A signed consent receipt is required." }, { status: 422 });
   }
 
+  const consent = verifyConsentReceipt(body.consentReceipt.trim());
+  if (!consent) {
+    return NextResponse.json({ error: "Consent receipt is invalid or expired. Please review and consent again." }, { status: 422 });
+  }
+
+  // audience + claims come ONLY from the verified receipt.
   const result = issueConsentedProof({
     userId: DEMO_USER_ID,
-    audience: body.audience.trim(),
-    consentedClaims,
-    ttlSeconds: typeof body.ttlSeconds === "number" ? body.ttlSeconds : undefined,
+    audience: consent.audience,
+    consentedClaims: consent.claims,
   });
 
   return NextResponse.json({

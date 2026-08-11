@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-11 — Proof系のセキュリティ強化を実装・記録
+
+- D-029 を追記（consent receipt 束縛 / サーバ固定 TTL / 正当トークンのみ失効 / 厳格 payload 検証 / seed 決定論鍵）
+- MASTER §11 に D-029 を同期
+- 実装記録 `06_RECORDS/Implementation_Notes_2026-08-11.md` を追加（原因・設計・不採用理由・追加テスト・残存制約）
+
 ## 2026-08-11 — 要件定義（正本）を新設し、監査所見 #2/#3 を反映
 
 - `04_DEVELOPMENT/Requirements.md` を新設（ID 付き FR/NFR + 受け入れ基準 + トレーサビリティ）。正本優先順位で MVP_Scope の次・Delta の前に挿入

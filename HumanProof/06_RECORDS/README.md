@@ -15,8 +15,9 @@
 3. 必要に応じて原回答
    - [`Mistral_Raw_Response_2026-08-11.md`](Mistral_Raw_Response_2026-08-11.md)
    - [`SakanaAI_Raw_Response_2026-08-11.md`](SakanaAI_Raw_Response_2026-08-11.md)
-4. [`Open_Questions.md`](Open_Questions.md)
-5. [`RECORDS_CHECKSUMS.md`](RECORDS_CHECKSUMS.md)
+4. [`Implementation_Notes_2026-08-11.md`](Implementation_Notes_2026-08-11.md)
+5. [`Open_Questions.md`](Open_Questions.md)
+6. [`RECORDS_CHECKSUMS.md`](RECORDS_CHECKSUMS.md)
 
 ## Authority
 
