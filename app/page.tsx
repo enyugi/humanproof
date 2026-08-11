@@ -319,7 +319,7 @@ export default function Page() {
           <label htmlFor="purpose">Purpose and current process (required)</label>
           <textarea id="purpose" value={purposeText} onChange={(e) => setPurposeText(e.target.value)} />
           <p className="note">
-            Data-type names only. Real names / addresses / dates / ID numbers are <strong>blocked</strong> (never sent to the AI).
+            Use data-type names only. If a real name, address, date, or ID number is detected, the request is blocked before any AI call.
           </p>
 
           <button className="primary block" onClick={analyze} disabled={loading}>
@@ -452,7 +452,7 @@ export default function Page() {
               {/* Trust evidence — concise, always visible */}
               <div className="evidence">
                 <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>AI: {result.audit.source}</span>
-                <span className="pill real">PII sent to AI: 0</span>
+                <span className="pill real">Identity-value findings in AI-bound payload (heuristic): {result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span>
                 <span className="pill real">Latency: {result.audit.latency_ms} ms</span>
               </div>
 
@@ -529,7 +529,7 @@ export default function Page() {
               ))}
             </div>
             <p className="note" style={{ marginTop: 10 }}>
-              Stays private (never shared): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
+              Not included in this proof: {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
             </p>
             <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
               Create Proof Request
@@ -548,7 +548,7 @@ export default function Page() {
                 <div style={{ marginTop: 6 }}>Shared with: <code>{quote.audience}</code></div>
                 <div>Proofs: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
                 {quote.excluded.length > 0 && <div>Not available: {quote.excluded.join(", ")}</div>}
-                <div>Kept private: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+                <div>Not included in this proof: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
                 <label className="check" style={{ marginTop: 10 }}>
                   <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
                   I consent to share exactly this
@@ -566,7 +566,7 @@ export default function Page() {
           {proof && (
             <section className="stepcard">
               <span className="steptag">Step 4 · Signed Proof issued</span>
-              <h3>A signed, short-lived proof — no personal data inside</h3>
+              <h3>A signed, short-lived proof — only the selected claims</h3>
               <p className="note" style={{ marginTop: 0 }}>
                 Shares <strong>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</strong> with <code>{proof.audience}</code>,
                 signed by the Demo Issuer and valid until {new Date(proof.expires_at * 1000).toLocaleTimeString()}.
