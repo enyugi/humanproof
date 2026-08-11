@@ -2,7 +2,19 @@
 
 **Status:** 実装記録（証跡）。正本は上書きしない。優先順位は README/RECORDS の Authority に従う。
 **Scope:** AI HACK MVP のアプリ実装（リポジトリ直下 Next.js）。仕様 [`../04_DEVELOPMENT/Requirements.md`](../04_DEVELOPMENT/Requirements.md)、判断 [`../00_MASTER/DECISIONS.md`](../00_MASTER/DECISIONS.md) D-029。
-**Revision:** セキュリティレビュー3回目でgreen確定。永続の信頼境界を **fail-closed** 化（保存失敗の握り潰し＝fail-open を修正）、quote を単回使用に確定、鍵の遅延初期化を追加。
+**Revision:** セキュリティレビュー4回目でgreen確定。3次で fail-closed 化した上で、**既存デモ環境（旧形式・0644 の `.humanproof/state.json`）の安全な引き継ぎ**を追加し、応答形状を統一。
+
+## 既存状態の安全な移行（4次レビューの中心）
+
+**根本原因**: 3次で `StateSchema` を `v`/`usedQuotes` 必須・strict にしたため、既存の旧形式ファイル（`{seedHex,revoked,revAuth}`・0644）が shape 不一致で `storeHealthy()===false` に。新規ディレクトリのテストは通るが、**実デモ環境をそのまま更新すると Proof 機能が停止**する（seed・失効を保持できない）。
+
+**採用（in-place 安全移行）**:
+- load 時に現行 shape でなければ **LegacySchema**（`v`/`usedQuotes` 無しの旧形式）を判定し、一致すれば `{v:1, seedHex, revoked, revAuth, usedQuotes:{}}` へ変換して **atomic write(0600)** で置換。**seed・期限内 revocation・revocation authority を保持**（invariant 1-2）。
+- 移行の書込みが失敗しても atomic（temp+rename）なので**旧ファイルは無傷**のまま fail-closed（invariant 5, 単純削除で回復しない=invariant 3）。
+- 現行 shape だが 0644 のファイルは load 時に **0600 へ chmod**（invariant 4）。
+- **応答形状の決定**（invariant 7）: 変更系（発行/失効）は **HTTP 503**、参照系（検証）は **200 + 構造化 `REVOCATION_UNAVAILABLE`**。検証は seed 環境変数なし＋破損状態でも **未処理例外を出さない**（`verifyProof` と route の二重 try/catch, invariant 6）。
+
+**不採用**: 状態ファイルの単純削除で「復旧」（鍵変更・失効履歴消失を招く, invariant 3 違反）。旧形式を無条件に空状態として読む（fail-open）。移行を非 atomic に行う（途中失敗で旧状態破壊）。
 
 ## 永続の信頼境界（3次レビューの中心）
 
@@ -24,8 +36,10 @@
 | 状況 | 発行 | 失効 | 検証 |
 |---|---|---|---|
 | 正常(persist) | 署名Proof + revocation code | code で REVOKED | VALID/EXPIRED/REVOKED |
-| 保存先が書込不能 / 破損 / 容量超 | 503 | 503 | REVOCATION_UNAVAILABLE |
-| 不正 seed 設定 | 起動時 throw（黙ってフォールバックしない） | 同左 | 同左 |
+| 旧形式(0644) の既存ファイル | 移行後に正常 | 移行後に正常 | 移行後に正常（seed/失効保持） |
+| 保存先が書込不能 / 破損 / 容量超 | 503 | 503 | 200 + REVOCATION_UNAVAILABLE（例外を出さない） |
+| 移行の書込み失敗 | 503（旧ファイル無傷） | 503 | 200 + REVOCATION_UNAVAILABLE |
+| 不正 seed 設定 | 初回使用時 throw（黙ってフォールバックしない） | 同左 | 200 + REVOCATION_UNAVAILABLE |
 | `PROOF_PERSIST=off`（明示） | 成功(揮発) | 成功(揮発) | プロセス内で一貫 |
 
 
@@ -63,8 +77,9 @@
 
 `tests/proofSecurity.test.ts`（17）: 旧公開 seed 偽造→BAD_SIGNATURE、quote 改ざん/型取り違え、明示 consent 欠如→422、quote 一致発行、**quote 単回使用（再利用→422）**、TTL clamp・過大 TTL 拒否、token/任意 id 失効拒否と code 失効成立、未来 iat・重複/空 claim・過大 audience・巨大 token・allowlist 外 claim 拒否、seed 決定論。
 `tests/proofStore.test.ts`（4, 動的 import で fresh init）: 不正 seed→throw、書込不能→503/503/REVOCATION_UNAVAILABLE、破損ファイル→同左、状態ファイル `0600`。
+`tests/proofMigration.test.ts`（4）: 旧形式 fixture の移行で同一鍵の既存 Proof が VALID・失効済みは REVOKED 維持・0644→0600、移行書込み失敗で旧ファイル保全＋fail-closed、現行だが 0644 のファイルを 0600 化、seed 環境変数なし＋破損で検証 route が REVOCATION_UNAVAILABLE（未処理例外なし）。
 `tests/proofPersistence.test.ts`（1）: **実モジュール再初期化**（vi.resetModules 再 import で鍵再導出＋ディスク再読込）で REVOKED 維持・seed 永続。
-`tests/proof.test.ts`（9）: lifecycle G。全体 **64 green**。加えて runtime で **実プロセス kill+restart** の HTTP 検証（REVOKED 維持・seed 永続・ファイル 0600）を実施。
+`tests/proof.test.ts`（9）: lifecycle G。全体 **68 green**。加えて runtime で **実プロセス kill+restart** の HTTP 検証、および**実デフォルト状態ディレクトリの複製**に対する移行検証（0644→0600・v:1・seed 保持・issue/verify=VALID・実ファイルは無改変）を実施。
 
 ## ローカル/デプロイで残る Demo 制約
 

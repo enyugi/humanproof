@@ -31,10 +31,17 @@ requests, and recommends the minimum proof. This repository contains both the **
   contain it, so a Verifier merely shown the proof **cannot** revoke it.
 - **Fail-closed persistence** — the state file (secret seed + revocation) uses atomic writes (temp + fsync + rename, `0600`)
   and is validated on load (shape, size cap). If it cannot be read/written or is corrupt, the store is **unavailable** and
-  the system fails closed: issue and revoke return `503` (no false success), and verification returns
-  `REVOCATION_UNAVAILABLE` (never `VALID`) because revocation cannot be confirmed. Revocation is persisted, so a revoked
-  in-TTL proof stays `REVOKED` across a real restart. `PROOF_PERSIST=off` is an explicit ephemeral (in-memory) mode.
-  Local single-process store — not a durable/replicated DB.
+  the system fails closed. Response shapes are consistent:
+  - **issue / revoke** (mutating) → HTTP **`503`** (no false success);
+  - **verify** (read) → HTTP `200` with structured **`REVOCATION_UNAVAILABLE`** (never `VALID`), and it never surfaces an
+    unhandled exception even with no env seed + a corrupt file.
+
+  Revocation is persisted, so a revoked in-TTL proof stays `REVOKED` across a real process restart.
+  `PROOF_PERSIST=off` is an explicit ephemeral (in-memory) mode. Local single-process store — not a durable/replicated DB.
+- **Safe upgrade of an existing state file** — a legacy file (`{seedHex,revoked,revAuth}`, mode `0644`, no `v`/`usedQuotes`)
+  is **migrated in place** on load to the current format with `0600` perms, preserving the issuer seed and all in-TTL
+  revocations / revocation authority. Migration uses the same atomic write, so a mid-write failure leaves the old file
+  intact and fails closed — the state file is never deleted to "recover".
 
 ## Run
 

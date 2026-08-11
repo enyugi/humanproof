@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-11 — Proof系 既存状態の安全な移行（4次レビュー・D-029 green確定）
+
+- 旧形式 (`{seedHex,revoked,revAuth}`・0644) の状態ファイルを、seed・期限内失効を保持したまま現行形式 (0600) へ in-place atomic 移行
+- 移行の途中失敗で旧ファイルを壊さず fail-closed（単純削除で回復しない）
+- 応答形状を統一: 変更系(発行/失効)=503、参照系(検証)=200+構造化 REVOCATION_UNAVAILABLE。seed なし＋破損でも検証 route は未処理例外を出さない
+- テスト追加 `proofMigration.test.ts`(4)。全体 68 green + 実デフォルト状態ディレクトリの複製で移行検証
+- D-029・MASTER §11・README・実装記録を最終設計へ同期
+
 ## 2026-08-11 — Proof系 セキュリティ3次レビュー対応（永続 fail-closed・D-029 green確定）
 
 - 永続の信頼境界を fail-closed 化（保存失敗の握り潰し=fail-open を修正）: 状態が読書不能/破損/容量超なら発行・失効は 503、検証は REVOCATION_UNAVAILABLE

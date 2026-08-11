@@ -188,6 +188,16 @@ export interface VerifyResult {
 const FAIL: VerifyChecks = { signature: false, issuer: false, audience: false, expiry: false, revocation: false };
 
 export function verifyProof(token: string, expectedAudience: string, nowMs: number = Date.now()): VerifyResult {
+  try {
+    return verifyProofInner(token, expectedAudience, nowMs);
+  } catch {
+    // Fail-closed: any unexpected failure (e.g. key material or state store unavailable) must NOT
+    // yield VALID. Report that validity cannot be confirmed. (invariants 2, 6)
+    return { status: "REVOCATION_UNAVAILABLE", checks: { ...FAIL } };
+  }
+}
+
+function verifyProofInner(token: string, expectedAudience: string, nowMs: number): VerifyResult {
   if (typeof token !== "string" || token.length === 0 || token.length > MAX_TOKEN_BYTES) {
     return { status: "MALFORMED", checks: { ...FAIL } };
   }

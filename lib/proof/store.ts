@@ -30,8 +30,26 @@ const StateSchema = z
   .strict();
 type State = z.infer<typeof StateSchema>;
 
+// Legacy on-disk shape written by earlier code: no `v`, no `usedQuotes`, often mode 0644.
+// `.strict()` makes it disjoint from the current shape so detection is unambiguous.
+const LegacySchema = z
+  .object({
+    seedHex: z.union([z.string().regex(/^[0-9a-f]{64}$/i), z.literal("")]),
+    revoked: z.record(z.string(), z.number()),
+    revAuth: z.record(z.string(), z.object({ jti: z.string(), exp: z.number() }).strict()),
+  })
+  .strict();
+
 function fresh(): State {
   return { v: 1, seedHex: "", revoked: {}, revAuth: {}, usedQuotes: {} };
+}
+
+function ensurePerms(): void {
+  try {
+    if ((fs.statSync(FILE).mode & 0o777) !== 0o600) fs.chmodSync(FILE, 0o600);
+  } catch {
+    /* best-effort */
+  }
 }
 
 let mem: State = fresh();
@@ -78,13 +96,27 @@ function ensureLoaded(): void {
         health = "unavailable"; // refuse to parse an oversized/untrusted file
         return;
       }
-      const parsed = StateSchema.safeParse(JSON.parse(fs.readFileSync(FILE, "utf8")));
-      if (!parsed.success) {
-        health = "unavailable"; // corrupt / wrong shape -> NOT treated as empty-normal
+      const obj: unknown = JSON.parse(fs.readFileSync(FILE, "utf8"));
+
+      const current = StateSchema.safeParse(obj);
+      if (current.success) {
+        mem = current.data;
+        ensurePerms(); // upgrade a current-format-but-0644 file to 0600
+        health = "ok";
         return;
       }
-      mem = parsed.data;
-      health = "ok";
+
+      // Safe migration of a valid legacy file: preserve seed + revocations + revocation authority.
+      const legacy = LegacySchema.safeParse(obj);
+      if (legacy.success) {
+        mem = { v: 1, seedHex: legacy.data.seedHex, revoked: legacy.data.revoked, revAuth: legacy.data.revAuth, usedQuotes: {} };
+        // Atomic write (temp + fsync + rename, 0600). On failure the original legacy file is left
+        // intact and we fail closed — never fake success, never delete the old state.
+        health = atomicWrite() ? "ok" : "unavailable";
+        return;
+      }
+
+      health = "unavailable"; // corrupt / unknown shape -> NOT treated as empty-normal
     } else {
       // fresh install: we must be able to create the file to be trustworthy
       health = atomicWrite() ? "ok" : "unavailable";
