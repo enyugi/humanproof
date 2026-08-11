@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { issueConsentReceipt } from "@/lib/proof/consent";
+import { issueQuote } from "@/lib/proof/quote";
 import { isClaim, type Claim } from "@/lib/claims";
 import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
 
 export const runtime = "nodejs";
 
-// Step 1 of issuance: the user reviews EXACTLY what will be issued and gets a signed consent receipt.
+// Step 1: the server confirms EXACTLY what could be issued for a selection and returns a signed
+// quote. This is confirmation, NOT consent — the user still has to explicitly consent at issue.
 export async function POST(req: Request) {
   let body: { audience?: string; claims?: unknown };
   try {
@@ -21,13 +22,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "At least one claim is required." }, { status: 422 });
   }
 
-  const receipt = issueConsentReceipt(body.audience.trim(), requested);
+  const quote = issueQuote(body.audience.trim(), requested);
+  if (!quote) {
+    return NextResponse.json({ error: "No issuable claims for this selection." }, { status: 422 });
+  }
   return NextResponse.json({
-    receipt: receipt.token,
-    audience: receipt.audience,
-    claims: receipt.claims, // exactly what will be issued
-    excluded: receipt.excluded,
+    quote: quote.token,
+    audience: quote.audience,
+    claims: quote.claims, // exactly what will be issued
+    excluded: quote.excluded,
     withheld_pii: DEMO_USER_WITHHELD_PII,
-    expires_at: receipt.expires_at,
+    expires_at: quote.expires_at,
   });
 }

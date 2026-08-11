@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-11 — Proof系 セキュリティ2次レビュー対応（D-029 確定）
+
+- D-029 を最終設計へ改訂（per-install 秘密鍵永続 / quote+明示consent 分離 / 保有者秘密codeでの失効・永続 / 厳格bounded検証）
+- MASTER §11・README・`.env.local.example` を同期
+- 実装記録 `06_RECORDS/Implementation_Notes_2026-08-11.md` を確定設計に改訂
+- 攻撃/失敗テストを追加（`tests/proofSecurity.test.ts` 16 / `tests/proofPersistence.test.ts` 1）。全体 59 green
+
 ## 2026-08-11 — Proof系のセキュリティ強化を実装・記録
 
 - D-029 を追記（consent receipt 束縛 / サーバ固定 TTL / 正当トークンのみ失効 / 厳格 payload 検証 / seed 決定論鍵）

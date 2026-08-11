@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { issueConsentedProof, verifyProof, encodeToken, type ProofPayload } from "@/lib/proof/proof";
-import { revoke, _clearRevocations } from "@/lib/proof/revocation";
+import { issueConsentedProof, verifyProof, revokeByCode, encodeToken, type ProofPayload } from "@/lib/proof/proof";
+import { _reset } from "@/lib/proof/store";
 import { DEMO_USER_ID } from "@/lib/proof/demoUser";
 import type { Claim } from "@/lib/claims";
 
@@ -8,7 +8,7 @@ const AUD = "svc-A";
 const issue = (over: Partial<Parameters<typeof issueConsentedProof>[0]> = {}) =>
   issueConsentedProof({ userId: DEMO_USER_ID, audience: AUD, consentedClaims: ["over_18", "human_verified"], ...over });
 
-beforeEach(() => _clearRevocations());
+beforeEach(() => _reset());
 
 describe("G. Proof lifecycle", () => {
   it("valid: correct audience -> VALID with all checks passing", () => {
@@ -25,10 +25,10 @@ describe("G. Proof lifecycle", () => {
     expect(verifyProof(token, AUD).status).toBe("EXPIRED");
   });
 
-  it("revoked: jti revoked -> REVOKED on re-verify", () => {
-    const { token, payload } = issue();
+  it("revoked: revoke via code -> REVOKED on re-verify", () => {
+    const { token, revocationCode } = issue();
     expect(verifyProof(token, AUD).status).toBe("VALID");
-    revoke(payload.jti, payload.exp);
+    expect(revokeByCode(revocationCode)).toBe(true);
     expect(verifyProof(token, AUD).status).toBe("REVOKED");
   });
 
@@ -42,7 +42,7 @@ describe("G. Proof lifecycle", () => {
   it("tampered signature -> BAD_SIGNATURE", () => {
     const a = issue();
     const b = issue({ audience: "svc-B" });
-    const tampered = `${a.token.split(".")[0]}.${b.token.split(".")[1]}`; // body of A, signature of B
+    const tampered = `${a.token.split(".")[0]}.${b.token.split(".")[1]}`;
     const r = verifyProof(tampered, AUD);
     expect(r.status).toBe("BAD_SIGNATURE");
     expect(r.checks.signature).toBe(false);
@@ -50,18 +50,8 @@ describe("G. Proof lifecycle", () => {
 
   it("unknown issuer -> UNKNOWN_ISSUER", () => {
     const now = Math.floor(Date.now() / 1000);
-    const forged: ProofPayload = {
-      typ: "proof",
-      iss: "did:humanproof:not-trusted",
-      sub: "x",
-      aud: AUD,
-      claims: ["over_18"],
-      iat: now,
-      exp: now + 300,
-      jti: "j1",
-    };
-    const r = verifyProof(encodeToken(forged), AUD);
-    expect(r.status).toBe("UNKNOWN_ISSUER");
+    const forged: ProofPayload = { typ: "proof", iss: "did:humanproof:not-trusted", sub: "x", aud: AUD, claims: ["over_18"], iat: now, exp: now + 300, jti: "j1" };
+    expect(verifyProof(encodeToken(forged), AUD).status).toBe("UNKNOWN_ISSUER");
   });
 
   it("pairwise subject: same user differs per audience, stable within an audience", () => {
@@ -73,10 +63,9 @@ describe("G. Proof lifecycle", () => {
   });
 });
 
-describe("Consent enforcement (FR-08)", () => {
+describe("Consent enforcement at issue (FR-08)", () => {
   it("only consented claims are included", () => {
-    const { payload } = issue({ consentedClaims: ["over_18"] });
-    expect(payload.claims).toEqual(["over_18"]);
+    expect(issue({ consentedClaims: ["over_18"] }).payload.claims).toEqual(["over_18"]);
   });
   it("non-allowlisted / non-held claims are excluded, not signed in", () => {
     const { payload, excluded_claims } = issue({ consentedClaims: ["over_18", "verified_creator" as Claim] });

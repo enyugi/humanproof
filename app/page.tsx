@@ -20,8 +20,8 @@ interface VerifyResult {
   subject?: string;
   expires_at?: number;
 }
-interface ConsentReceipt {
-  receipt: string;
+interface Quote {
+  quote: string;
   audience: string;
   claims: Claim[];
   excluded: Claim[];
@@ -88,20 +88,22 @@ export default function Page() {
 
   // Proof lifecycle state
   const [consentClaims, setConsentClaims] = useState<Set<Claim>>(new Set());
-  const [receipt, setReceipt] = useState<ConsentReceipt | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
   const [proof, setProof] = useState<ProofSummary | null>(null);
   const [proofToken, setProofToken] = useState<string | null>(null);
+  const [revocationCode, setRevocationCode] = useState<string | null>(null);
   const [verify, setVerify] = useState<VerifyResult | null>(null);
   const [proofError, setProofError] = useState<string | null>(null);
 
-  // Any change to audience or the selected claims invalidates a prior consent receipt: the user
-  // must review + consent to the exact set again before issuance (Problem 1).
+  // Any change to audience or the selected claims invalidates a prior quote: the user must review
+  // and explicitly consent to the exact set again before issuance (Problem 1/2).
   useEffect(() => {
-    setReceipt(null);
+    setQuote(null);
     setConsentGiven(false);
     setProof(null);
     setProofToken(null);
+    setRevocationCode(null);
     setVerify(null);
   }, [audience, consentClaims]);
 
@@ -163,40 +165,42 @@ export default function Page() {
     });
   }
 
-  async function reviewConsent() {
+  async function reviewQuote() {
     setProofError(null);
     setProof(null);
     setProofToken(null);
+    setRevocationCode(null);
     setVerify(null);
     setConsentGiven(false);
     try {
-      const res = await fetch("/api/proof/consent", {
+      const res = await fetch("/api/proof/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audience, claims: Array.from(consentClaims) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Consent failed");
-      setReceipt(data as ConsentReceipt);
+      if (!res.ok) throw new Error(data.error ?? "Quote failed");
+      setQuote(data as Quote);
     } catch (e) {
-      setProofError(e instanceof Error ? e.message : "Consent failed");
+      setProofError(e instanceof Error ? e.message : "Quote failed");
     }
   }
 
   async function issueProof() {
-    if (!receipt || !consentGiven) return;
+    if (!quote || !consentGiven) return;
     setProofError(null);
     setVerify(null);
     try {
       const res = await fetch("/api/proof/issue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consentReceipt: receipt.receipt }),
+        body: JSON.stringify({ quote: quote.quote, consent: consentGiven }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Issue failed");
       setProof(data.proof as ProofSummary);
       setProofToken(data.token as string);
+      setRevocationCode(data.revocationCode as string);
     } catch (e) {
       setProofError(e instanceof Error ? e.message : "Issue failed");
     }
@@ -218,13 +222,13 @@ export default function Page() {
   }
 
   async function revokeProof() {
-    if (!proofToken) return;
+    if (!revocationCode) return;
     setProofError(null);
     try {
       await fetch("/api/proof/revoke", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: proofToken }), // authentic proof token, not a bare id
+        body: JSON.stringify({ revocationCode }), // holder's secret code, NOT the proof token
       });
       await verifyProofNow(); // re-verify -> should now show REVOKED
     } catch (e) {
@@ -472,30 +476,30 @@ export default function Page() {
             Not shared (stays with you): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
           </p>
           <div>
-            <button className="primary" onClick={reviewConsent} disabled={consentClaims.size === 0}>
-              Review &amp; consent
+            <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
+              Review &amp; get quote
             </button>
           </div>
 
           {proofError && <div className="error" style={{ marginTop: 12 }}>{proofError}</div>}
 
-          {/* Step 2: server-confirmed consent receipt -> issue */}
-          {receipt && (
+          {/* Step 2: server-confirmed quote (NOT consent) -> explicit consent -> issue */}
+          {quote && (
             <div className="banner ok-banner" style={{ marginTop: 14 }}>
-              <strong>You are about to issue (server-confirmed):</strong>
-              <div style={{ marginTop: 6 }}>Audience: <code>{receipt.audience}</code></div>
-              <div>Claims: {receipt.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
-              {receipt.excluded.length > 0 && (
-                <div>Excluded (not held / not allowlisted): {receipt.excluded.join(", ")}</div>
+              <strong>Server-confirmed selection (this is confirmation, not consent):</strong>
+              <div style={{ marginTop: 6 }}>Audience: <code>{quote.audience}</code></div>
+              <div>Claims: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
+              {quote.excluded.length > 0 && (
+                <div>Excluded (not held / not allowlisted): {quote.excluded.join(", ")}</div>
               )}
-              <div>Not shared: {receipt.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
-              <div className="note" style={{ marginTop: 4 }}>Consent valid until {new Date(receipt.expires_at * 1000).toISOString()}</div>
+              <div>Not shared: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+              <div className="note" style={{ marginTop: 4 }}>Quote valid until {new Date(quote.expires_at * 1000).toISOString()}</div>
               <label className="check" style={{ marginTop: 8 }}>
                 <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
-                I confirm and consent to issue exactly the above
+                I explicitly consent to issue exactly the above
               </label>
               <div>
-                <button className="primary" onClick={issueProof} disabled={!consentGiven || receipt.claims.length === 0}>
+                <button className="primary" onClick={issueProof} disabled={!consentGiven || quote.claims.length === 0}>
                   Issue Signed Proof
                 </button>
               </div>
@@ -514,9 +518,17 @@ export default function Page() {
                 <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
                 <div className="row"><span>JTI</span><span><code className="mono">{proof.jti}</code></span></div>
               </div>
+              {revocationCode && (
+                <div className="banner" style={{ marginTop: 10 }}>
+                  <strong>Revocation code (secret — keep it):</strong> <code className="mono">{revocationCode}</code>
+                  <div className="note">Only whoever holds this code can revoke the proof. A Verifier shown the proof cannot.</div>
+                </div>
+              )}
               <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-                <button className="primary" onClick={verifyProofNow}>Verify</button>
-                <button className="primary" onClick={revokeProof} style={{ background: "var(--danger)" }}>Revoke</button>
+                <button className="primary" onClick={verifyProofNow}>Verify (Verifier — token only)</button>
+                <button className="primary" onClick={revokeProof} disabled={!revocationCode} style={{ background: "var(--danger)" }}>
+                  Revoke (holder — uses your code)
+                </button>
               </div>
             </div>
           )}

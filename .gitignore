@@ -16,6 +16,10 @@ next-env.d.ts
 .env.local
 .env*.local
 
+# proof system local state (per-install issuer seed + revocation)
+/.humanproof
+/.humanproof-test
+
 # misc
 *.tsbuildinfo
 npm-debug.log*

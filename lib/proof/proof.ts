@@ -1,22 +1,25 @@
-// Signed Proof: issue (sign) + verify. Real Ed25519 signatures over an audience-bound, short-lived,
-// pairwise-subject payload. Source: HumanProof_MASTER §7/§8, Requirements FR-08..FR-11, D-008/D-009.
+// Signed Proof: issue (sign) + verify + revoke-by-code. Real Ed25519 signatures over an
+// audience-bound, short-lived, pairwise-subject payload. Source: HumanProof_MASTER §7/§8,
+// Requirements FR-08..FR-11, D-008/D-009.
 //
-// This is a CUSTOM (non-standard) compact token format, not JWT/JWS/VC — stated as such in the UI
-// and README (Problem 6). Server-side policy owns the TTL (Problem 2); verification strictly
-// validates the payload shape, claims allowlist, and TTL bounds even when the signature is valid
-// (Problem 4).
+// CUSTOM (non-standard) compact token format, not JWT/JWS/VC — stated as such in UI/README.
+// Server owns the TTL. Verification strictly validates shape/claims/bounds even with a valid
+// signature. Revocation authority is a separate secret CODE (not the token), so a Verifier that
+// only sees the proof cannot revoke it.
 
-import { sign as edSign, verify as edVerify, randomUUID } from "node:crypto";
+import { sign as edSign, verify as edVerify, randomUUID, randomBytes, createHash } from "node:crypto";
 import { z } from "zod";
 import { SUPPORTED_CLAIMS, type Claim } from "../claims";
 import { ClaimEnum } from "../schema";
 import { DEMO_ISSUER_ID, getIssuerPrivateKey, getIssuerPublicKey, pairwiseSubject } from "./issuer";
 import { DEMO_USER_HELD_CLAIMS } from "./demoUser";
-import { isRevoked } from "./revocation";
+import { isRevoked, addRevoked, putRevAuth, lookupRevAuth } from "./store";
 
-// Server-owned TTL policy. Clients cannot influence it. Proofs are always short-lived.
 export const POLICY_TTL_SECONDS = 300;
 export const MAX_TTL_SECONDS = 300;
+export const CLOCK_SKEW_SECONDS = 60;
+export const MAX_TOKEN_BYTES = 4096;
+const MAX_STR = 256;
 
 export interface ProofPayload {
   typ: "proof";
@@ -29,22 +32,23 @@ export interface ProofPayload {
   jti: string;
 }
 
-// Strict validation applied AFTER signature verification. Rejects allowlist-violating claims,
-// bad shapes, non-positive / inverted / over-long lifetimes — even if the signature is valid.
+// Strict validation applied AFTER signature verification. Bounds guard against oversized fields,
+// empty/duplicate/over-count claims, inverted or over-long lifetimes (Problem 5).
 const ProofPayloadSchema = z
   .object({
     typ: z.literal("proof"),
-    iss: z.string().min(1),
-    sub: z.string().min(1),
-    aud: z.string().min(1),
-    claims: z.array(ClaimEnum),
+    iss: z.string().min(1).max(MAX_STR),
+    sub: z.string().min(1).max(MAX_STR),
+    aud: z.string().min(1).max(MAX_STR),
+    claims: z.array(ClaimEnum).min(1).max(SUPPORTED_CLAIMS.length),
     iat: z.number().int().nonnegative(),
     exp: z.number().int().positive(),
-    jti: z.string().min(1),
+    jti: z.string().min(1).max(MAX_STR),
   })
   .strict()
   .refine((p) => p.exp > p.iat, { message: "exp must be after iat" })
-  .refine((p) => p.exp - p.iat <= MAX_TTL_SECONDS, { message: "lifetime exceeds server policy" });
+  .refine((p) => p.exp - p.iat <= MAX_TTL_SECONDS, { message: "lifetime exceeds policy" })
+  .refine((p) => new Set(p.claims).size === p.claims.length, { message: "duplicate claims" });
 
 function b64url(s: string): string {
   return Buffer.from(s, "utf8").toString("base64url");
@@ -53,16 +57,15 @@ function unb64url(s: string): string {
   return Buffer.from(s, "base64url").toString("utf8");
 }
 
-/** Sign an arbitrary object into a `${body}.${sig}` token with the issuer key. */
 export function encodeToken(payload: object): string {
   const bodyB64 = b64url(JSON.stringify(payload));
   const sig = edSign(null, Buffer.from(bodyB64, "utf8"), getIssuerPrivateKey()).toString("base64url");
   return `${bodyB64}.${sig}`;
 }
-export const encodeProof = encodeToken; // back-compat alias
+export const encodeProof = encodeToken;
 
-/** Verify token signature against a known issuer; returns the parsed body if authentic. */
 export function verifyTokenSignature(token: string): { ok: boolean; issuerKnown: boolean; body: unknown } {
+  if (typeof token !== "string" || token.length > MAX_TOKEN_BYTES) return { ok: false, issuerKnown: false, body: null };
   const parts = token.split(".");
   if (parts.length !== 2) return { ok: false, issuerKnown: false, body: null };
   const [bodyB64, sigB64] = parts;
@@ -95,12 +98,13 @@ export interface IssueResult {
   token: string;
   payload: ProofPayload;
   excluded_claims: Claim[];
+  revocationCode: string; // secret returned ONLY to the holder; grants revocation authority
 }
 
-/**
- * Issue a proof with ONLY claims that are consented AND held AND allowlisted. TTL is clamped to the
- * server policy — callers cannot make it longer than MAX_TTL_SECONDS or non-positive (Problem 2).
- */
+function hashCode(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
+}
+
 export function issueConsentedProof(input: IssueConsentedProofInput): IssueResult {
   const nowMs = input.nowMs ?? Date.now();
   const requestedTtl = input.ttlSeconds ?? POLICY_TTL_SECONDS;
@@ -129,7 +133,21 @@ export function issueConsentedProof(input: IssueConsentedProofInput): IssueResul
     exp: iat + ttl,
     jti: randomUUID(),
   };
-  return { token: encodeToken(payload), payload, excluded_claims: excluded };
+
+  // Revocation authority: a high-entropy secret code, returned only to the holder. We store its
+  // HASH mapped to (jti, exp). The proof token does NOT contain the code (Problem 3).
+  const revocationCode = randomBytes(32).toString("base64url");
+  putRevAuth(hashCode(revocationCode), payload.jti, payload.exp, nowMs);
+
+  return { token: encodeToken(payload), payload, excluded_claims: excluded, revocationCode };
+}
+
+/** Revoke using the secret revocation code (holder authority), not the proof token. */
+export function revokeByCode(revocationCode: string, nowMs = Date.now()): boolean {
+  if (typeof revocationCode !== "string" || revocationCode.length === 0 || revocationCode.length > MAX_STR) return false;
+  const entry = lookupRevAuth(hashCode(revocationCode), nowMs);
+  if (!entry) return false;
+  return addRevoked(entry.jti, entry.exp, nowMs);
 }
 
 export type VerifyStatus =
@@ -146,7 +164,7 @@ export interface VerifyChecks {
   issuer: boolean;
   audience: boolean;
   expiry: boolean;
-  revocation: boolean; // true = not revoked
+  revocation: boolean;
 }
 export interface VerifyResult {
   status: VerifyStatus;
@@ -160,6 +178,9 @@ export interface VerifyResult {
 const FAIL: VerifyChecks = { signature: false, issuer: false, audience: false, expiry: false, revocation: false };
 
 export function verifyProof(token: string, expectedAudience: string, nowMs: number = Date.now()): VerifyResult {
+  if (typeof token !== "string" || token.length === 0 || token.length > MAX_TOKEN_BYTES) {
+    return { status: "MALFORMED", checks: { ...FAIL } };
+  }
   const sig = verifyTokenSignature(token);
   const checks: VerifyChecks = { ...FAIL };
 
@@ -168,27 +189,19 @@ export function verifyProof(token: string, expectedAudience: string, nowMs: numb
   checks.signature = sig.ok;
   if (!sig.ok) return { status: "BAD_SIGNATURE", checks };
 
-  // Signature is valid — now STRICTLY validate the payload (shape, allowlist, TTL bounds).
   const parsed = ProofPayloadSchema.safeParse(sig.body);
-  if (!parsed.success) return { status: "MALFORMED", checks: { ...checks, audience: false, expiry: false, revocation: false } };
+  if (!parsed.success) return { status: "MALFORMED", checks };
   const p = parsed.data;
+  const nowSec = Math.floor(nowMs / 1000);
+  if (p.iat > nowSec + CLOCK_SKEW_SECONDS) return { status: "MALFORMED", checks }; // future-dated
 
   checks.audience = p.aud === expectedAudience;
-  checks.expiry = Math.floor(nowMs / 1000) < p.exp;
-  checks.revocation = !isRevoked(p.jti);
+  checks.expiry = nowSec < p.exp;
+  checks.revocation = !isRevoked(p.jti, nowMs);
 
   const base = { checks, issuer: p.iss, subject: p.sub, claims: p.claims, expires_at: p.exp };
   if (!checks.audience) return { status: "AUDIENCE_MISMATCH", ...base };
   if (!checks.expiry) return { status: "EXPIRED", ...base };
   if (!checks.revocation) return { status: "REVOKED", ...base };
   return { status: "VALID", ...base };
-}
-
-/** Extract jti+exp from a token ONLY if it is an authentic, well-formed proof (for revocation). */
-export function authenticProofRef(token: string): { jti: string; exp: number } | null {
-  const sig = verifyTokenSignature(token);
-  if (!sig.issuerKnown || !sig.ok) return null;
-  const parsed = ProofPayloadSchema.safeParse(sig.body);
-  if (!parsed.success) return null;
-  return { jti: parsed.data.jti, exp: parsed.data.exp };
 }
