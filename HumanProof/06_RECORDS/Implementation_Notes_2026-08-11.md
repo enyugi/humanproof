@@ -87,3 +87,8 @@
 - 既定は env seed 無しで**ランダム自動生成 seed をローカル永続**（秘匿は OS のファイル権限に依存）。マルチプロセス/デプロイでは env seed 注入を推奨。
 - Demo Issuer は本人確認をしない（模擬）。独自トークン形式は標準非準拠。
 - 失効は「所持 = 権限（revocation code）」モデル。人間性や発行者権限の厳密な PKI ではない。
+
+## 本番化時の追加強化（今回のMVP昇格は止めない）
+
+- **`chmod` 失敗の厳格 fail-closed 化**: 現状 `ensurePerms()`（0644→0600 の権限引き上げ）は best-effort で、chmod 失敗時も health=ok のまま継続する。本番では「秘密状態ファイルを 0600 にできない＝機密性を保証できない」として fail-closed（unavailable 扱い）にすることを検討する。MVP のローカル単一プロセス・デモでは許容。
+- 期限切れ revocation は次回操作時に prune される（在 TTL のみ保持）。これは仕様どおり（期限切れ Proof は EXPIRED になるため失効記録不要）。
