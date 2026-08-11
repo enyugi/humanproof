@@ -25,6 +25,7 @@ Recordsは証跡であって正本ではない。矛盾時は次を優先する�
 1. `00_MASTER/HumanProof_MASTER.md`
 2. `00_MASTER/DECISIONS.md`
 3. `04_DEVELOPMENT/MVP_Scope.md`
-4. Records
+4. `04_DEVELOPMENT/Requirements.md`
+5. Records
 
 原回答に含まれる統計、URL、市場規模、競合不在、法規制等は、別途一次情報で確認するまで未検証として扱う。

@@ -11,6 +11,7 @@
    - プロダクト検討: [`01_PRODUCT/`](01_PRODUCT/)
    - 壁打ち・市場仮説: [`02_RESEARCH/`](02_RESEARCH/)
    - ピッチ／デモ: [`03_AI_HACK/`](03_AI_HACK/)
+   - 要件定義（実装契約）: [`04_DEVELOPMENT/Requirements.md`](04_DEVELOPMENT/Requirements.md)
    - Claude Code再開: [`04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md`](04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md)
    - 将来構想: [`05_FUTURE/`](05_FUTURE/)
    - 検討経緯・原回答・作業記録: [`06_RECORDS/README.md`](06_RECORDS/README.md)
@@ -22,10 +23,11 @@
 1. `00_MASTER/HumanProof_MASTER.md`
 2. `00_MASTER/DECISIONS.md`
 3. `04_DEVELOPMENT/MVP_Scope.md`
-4. `04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md`
-5. その他のテーマ別文書
-6. `06_RECORDS/` の経緯・原回答
-7. `99_REFERENCE/` の旧原本
+4. `04_DEVELOPMENT/Requirements.md`
+5. `04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md`
+6. その他のテーマ別文書
+7. `06_RECORDS/` の経緯・原回答
+8. `99_REFERENCE/` の旧原本
 
 `99_REFERENCE/` は履歴確認用であり、そこにある旧仕様をそのまま現行仕様と解釈しない。
 `06_RECORDS/` は「なぜそう決めたか」を追跡する証跡であり、正本を上書きしない。

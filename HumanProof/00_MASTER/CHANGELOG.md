@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-11 — 要件定義（正本）を新設し、監査所見 #2/#3 を反映
+
+- `04_DEVELOPMENT/Requirements.md` を新設（ID 付き FR/NFR + 受け入れ基準 + トレーサビリティ）。正本優先順位で MVP_Scope の次・Delta の前に挿入
+- 優先順位を `README.md` と `06_RECORDS/README.md` に反映
+- 所見 #2: `required_claims` / `optional_claims` の意味を Delta §4 に定義
+- 所見 #3: `DECISIONS.md` に「読み方（append-only ID 順・Status 俯瞰は MASTER §11）」を追記し、MASTER §11 に D-027/D-028 を反映して同期
+- 改変禁止ファイル（`99_REFERENCE/`, `06_RECORDS/*_Raw_Response_*`）は非改変
+
 ## 2026-08-11 — requested data の正規化・カウント規則を明確化
 
 品質監査 (所見 #1) の反映。`id_photo` / `face_image` / `raw_identity_document` の写像とカウントの曖昧さを解消。

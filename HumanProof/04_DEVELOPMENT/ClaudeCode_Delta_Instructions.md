@@ -133,6 +133,14 @@ Before / Afterの要約を表示:
 }
 ```
 
+### required / optional claims の意味
+
+`required_claims` と `optional_claims` はどちらも固定 Claim Catalog (`human_verified` / `over_18` / `unique_person`) の部分集合で、次のように使い分ける。
+
+- **required_claims**: 記述された目的を満たすために最小限必要な proof。デモの 18+ community では `over_18` と `human_verified`。
+- **optional_claims**: 目的に関連しうるが、記述目的だけからは必須と確認できない proof。サービスが追加する場合は理由の提示を促す。18+ community の `unique_person` は通常 optional（「複数アカウント抑止」等が目的に明記された場合のみ required 候補）。
+- **制約**: required と optional は互いに素（重複禁止）。両者とも Catalog 外の値を含めない。UI では required を「最小 proof」、optional を「必要に応じて追加できる proof」として区別表示する。
+
 ### 正規化とカウント規則（決定論）
 
 `detected_requested_data` は次の意味論で一意に確定させる。
