@@ -11,9 +11,9 @@ import { parseAnalysis } from "./schema";
 import { enforcePolicy, type EnforcedAnalysis } from "./policy";
 import { getProvider } from "./orcaRouter";
 import type { OrcaInput, OrcaMeta, OrcaProvider } from "./orcaRouter";
-import { OrcaTimeoutError } from "./orcaRouter/types";
+import { OrcaTimeoutError, OrcaUpstreamError } from "./orcaRouter/types";
 
-export { OrcaTimeoutError };
+export { OrcaTimeoutError, OrcaUpstreamError };
 
 /** Thrown when the client disconnected mid-analysis (distinct from an upstream timeout). */
 export class ClientAbortError extends Error {
@@ -86,6 +86,7 @@ export interface AnalyzeOptions {
   signal?: AbortSignal; // client-disconnect signal (from the request)
   perCallMs?: number; // override per-call timeout (tests)
   overallMs?: number; // override overall deadline (tests)
+  now?: () => number; // injectable clock (tests) for deterministic deadline checks
 }
 
 export async function runAnalysis(
@@ -127,8 +128,9 @@ export async function runAnalysis(
   //    - schema-invalid output is retried at most once, only if the deadline allows
   const perCallMs = opts.perCallMs ?? PER_CALL_TIMEOUT_MS;
   const overallMs = opts.overallMs ?? OVERALL_DEADLINE_MS;
-  const deadlineAt = Date.now() + overallMs;
-  const remaining = () => deadlineAt - Date.now();
+  const now = opts.now ?? Date.now;
+  const deadlineAt = now() + overallMs;
+  const remaining = () => deadlineAt - now();
 
   // Distinguish client disconnect from an upstream timeout; leave genuine errors as-is.
   const classifyUpstream = (err: unknown): unknown => {
@@ -136,10 +138,12 @@ export async function runAnalysis(
     if (err instanceof OrcaTimeoutError) return err;
     const name = (err as { name?: string } | null)?.name;
     if (name === "TimeoutError" || name === "AbortError") return new OrcaTimeoutError();
-    return err;
+    return err; // e.g. OrcaUpstreamError / network error -> propagated unchanged
   };
 
   const callOnce = async () => {
+    // Do not spend an upstream call if the client already disconnected.
+    if (opts.signal?.aborted) throw new ClientAbortError();
     const budget = Math.min(perCallMs, remaining());
     if (budget <= 0) throw new OrcaTimeoutError("Overall analysis deadline exceeded");
     const timeoutSignal = AbortSignal.timeout(budget);
@@ -157,8 +161,12 @@ export async function runAnalysis(
     throw classifyUpstream(err);
   }
 
-  // Retry ONLY on schema-invalid output, at most once, and only within the overall deadline.
-  if (!parsed.ok && remaining() > 0) {
+  // Retry ONLY on schema-invalid output, at most once. Before retrying, re-check the budget:
+  //   - if the client disconnected -> ClientAbortError (do not call the provider again)
+  //   - if the overall deadline is exhausted -> OrcaTimeoutError (504), NOT a schema 422
+  if (!parsed.ok) {
+    if (opts.signal?.aborted) throw new ClientAbortError();
+    if (remaining() <= 0) throw new OrcaTimeoutError("Overall deadline exhausted before schema retry");
     try {
       const retry = await callOnce();
       meta = retry.meta;
@@ -222,6 +230,10 @@ export function classifyAnalyzeError(err: unknown): { status: number; body: Reco
       status: 504,
       body: { error: "Temporary connection delay. Please wait a moment and try again.", timeout: true, retriable: true },
     };
+  }
+  if (err instanceof OrcaUpstreamError) {
+    // Upstream returned a non-success status. Never surface its body/status detail to the client.
+    return { status: 502, body: { error: "The proof/identity service is temporarily unavailable. Please try again.", retriable: true } };
   }
   if (err instanceof AnalyzeError) {
     return { status: 422, body: { error: err.message } };

@@ -3,6 +3,7 @@ import {
   runAnalysis,
   classifyAnalyzeError,
   OrcaTimeoutError,
+  OrcaUpstreamError,
   ClientAbortError,
   PiiBlockedError,
   AnalyzeError,
@@ -90,6 +91,36 @@ describe("upstream timeout & deadline", () => {
     await expect(runAnalysis(INPUT, p, { perCallMs: 2000, overallMs: 4000 })).rejects.toBeInstanceOf(AnalyzeError);
     expect(p.calls).toBe(2);
   });
+
+  it("client disconnects as the first (schema-invalid) response returns -> ClientAbortError, 1 call (no retry)", async () => {
+    const ac = new AbortController();
+    class P implements OrcaProvider {
+      calls = 0;
+      analyze(): Promise<OrcaResult> {
+        this.calls++;
+        ac.abort(); // client disconnects exactly as the (invalid) response comes back
+        return Promise.resolve({ raw: {}, meta: META });
+      }
+    }
+    const p = new P();
+    await expect(runAnalysis(INPUT, p, { perCallMs: 2000, overallMs: 4000, signal: ac.signal })).rejects.toBeInstanceOf(ClientAbortError);
+    expect(p.calls).toBe(1);
+  });
+
+  it("overall deadline exhausted after first schema-invalid -> OrcaTimeoutError (504), 1 call (no retry)", async () => {
+    const clock = { t: 1000 };
+    class P implements OrcaProvider {
+      calls = 0;
+      analyze(): Promise<OrcaResult> {
+        this.calls++;
+        clock.t += 500; // consume the whole deadline before the retry check
+        return Promise.resolve({ raw: {}, meta: META });
+      }
+    }
+    const p = new P();
+    await expect(runAnalysis(INPUT, p, { perCallMs: 1000, overallMs: 200, now: () => clock.t })).rejects.toBeInstanceOf(OrcaTimeoutError);
+    expect(p.calls).toBe(1);
+  });
 });
 
 describe("classifyAnalyzeError -> HTTP mapping", () => {
@@ -101,6 +132,11 @@ describe("classifyAnalyzeError -> HTTP mapping", () => {
   });
   it("client abort -> 499 (not confused with timeout)", () => {
     expect(classifyAnalyzeError(new ClientAbortError()).status).toBe(499);
+  });
+  it("upstream HTTP error -> 502 with no status detail / body leaked", () => {
+    const c = classifyAnalyzeError(new OrcaUpstreamError(503));
+    expect(c.status).toBe(502);
+    expect(JSON.stringify(c.body)).not.toContain("503");
   });
   it("PII blocked -> 422 blocked", () => {
     const c = classifyAnalyzeError(new PiiBlockedError(["email"]));
@@ -125,16 +161,20 @@ describe("provider passes signal and never leaks body/prompt/auth", () => {
     };
     const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
     const input: OrcaInput = { system: "s", sanitizedServiceText: "x", requestedDataCategories: [], allowlist: [], signal: AbortSignal.timeout(1000) };
-    let msg = "";
+    let caught: unknown;
     try {
       await provider.analyze(input);
     } catch (e) {
-      msg = e instanceof Error ? e.message : String(e);
+      caught = e;
     }
     expect(seenSignal).toBeDefined();
+    expect(caught).toBeInstanceOf(OrcaUpstreamError);
+    const msg = caught instanceof Error ? caught.message : String(caught);
     expect(msg).toMatch(/OrcaRouter HTTP 500/);
     expect(msg).not.toContain(SECRET_BODY);
     expect(msg).not.toContain("test-key");
     expect(msg.toLowerCase()).not.toContain("bearer");
+    // and it maps to 502 at the API layer
+    expect(classifyAnalyzeError(caught).status).toBe(502);
   });
 });

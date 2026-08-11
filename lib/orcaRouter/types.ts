@@ -39,6 +39,17 @@ export class OrcaTimeoutError extends Error {
   }
 }
 
+/**
+ * Thrown when OrcaRouter returns a non-success HTTP status. The message carries ONLY the status
+ * code — never the response body, prompt, or Authorization header (safe handling).
+ */
+export class OrcaUpstreamError extends Error {
+  constructor(public status: number) {
+    super(`OrcaRouter HTTP ${status}`);
+    this.name = "OrcaUpstreamError";
+  }
+}
+
 export interface OrcaProvider {
   analyze(input: OrcaInput): Promise<OrcaResult>;
 }
