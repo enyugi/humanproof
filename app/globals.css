@@ -103,3 +103,37 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 .audit .row:last-child { border-bottom: none; }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* one-path progress rail */
+.stepper { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 4px 0 20px; }
+.step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+.step .n { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-2); align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: var(--muted); border: 1px solid var(--border); }
+.step.done { color: var(--accent); border-color: var(--accent); }
+.step.done .n { background: var(--accent); color: #06121f; border-color: var(--accent); }
+.step.active { color: var(--brand); border-color: var(--brand); }
+.step.active .n { background: var(--brand); color: #06121f; border-color: var(--brand); }
+
+/* concise trust evidence strip */
+.evidence { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+
+/* collapsible technical/audit detail */
+details.tech { margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; }
+details.tech > summary { cursor: pointer; padding: 10px 0; font-size: 13px; color: var(--muted); }
+details.tech[open] > summary { border-bottom: 1px dashed var(--border); margin-bottom: 8px; }
+
+/* guided step cards */
+.stepcard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-top: 16px; }
+.stepcard h3 { margin: 4px 0 8px; font-size: 16px; }
+.steptag { font-size: 11px; color: var(--brand); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* verify verdict badge */
+.verdict { text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 0.04em; padding: 14px; border-radius: 12px; margin: 8px 0; border: 1px solid var(--border); }
+.verdict.ok { color: var(--accent); border-color: var(--accent); background: rgba(76,195,138,0.08); }
+.verdict.bad { color: var(--danger); border-color: var(--danger); background: rgba(240,119,106,0.08); }
+
+@media (max-width: 640px) {
+  .wrap { padding: 20px 14px 64px; }
+  .headline { font-size: 20px; }
+  .audit .row { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .audit .row span:first-child { color: var(--muted); }
+}

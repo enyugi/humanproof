@@ -250,6 +250,25 @@ export default function Page() {
         ? "Analyze (MOCK provider)"
         : "Analyze with OrcaRouter";
 
+  // Progress along the single demo path (orientation for a first-time viewer).
+  const done = {
+    analyze: !!result,
+    request: !!quote,
+    consent: !!quote && consentGiven,
+    issue: !!proof,
+    verify: !!verify && (verify.status === "VALID" || verify.status === "REVOKED"),
+    revoke: verify?.status === "REVOKED",
+  };
+  const steps: { key: keyof typeof done; label: string }[] = [
+    { key: "analyze", label: "Analyze" },
+    { key: "request", label: "Proof request" },
+    { key: "consent", label: "Consent" },
+    { key: "issue", label: "Issue" },
+    { key: "verify", label: "Verify" },
+    { key: "revoke", label: "Revoke" },
+  ];
+  const activeIndex = steps.findIndex((s) => !done[s.key]);
+
   return (
     <div className="wrap">
       <header className="hp">
@@ -274,10 +293,23 @@ export default function Page() {
         </div>
       )}
 
+      {/* One-path progress rail */}
+      <ol className="stepper" aria-label="demo steps">
+        {steps.map((s, i) => (
+          <li key={s.key} className={`step ${done[s.key] ? "done" : i === activeIndex ? "active" : ""}`}>
+            <span className="n">{done[s.key] ? "✓" : i + 1}</span>
+            {s.label}
+          </li>
+        ))}
+      </ol>
+
       <div className="grid">
         {/* INPUT */}
         <section className="card">
-          <h2>Service requirement</h2>
+          <h2>1 · Service requirement</h2>
+          <p className="note" style={{ marginTop: 0 }}>
+            A service says what it wants. HumanProof&apos;s AI proposes the smallest proof that still satisfies the purpose.
+          </p>
           <label htmlFor="svc">Service name</label>
           <input id="svc" type="text" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
 
@@ -308,16 +340,22 @@ export default function Page() {
 
         {/* RESULT */}
         <section className="card">
-          <h2>HumanProof recommendation</h2>
+          <h2>2 · Minimum proof</h2>
 
-          {error && <div className="error">{error}</div>}
+          {error && (
+            <div className="error">
+              {error}
+              <div className="note">Next: check the purpose text and try Analyze again.</div>
+            </div>
+          )}
           {blockedTypes && (
             <div className="error">
               <strong>Blocked before sending to AI.</strong> Real personal values were detected in the purpose text
-              ({blockedTypes.join(", ")}). Remove them (use data-type names instead) and analyze again. Nothing was sent to the gateway.
+              ({blockedTypes.join(", ")}).
+              <div className="note">Next: replace real values with data-type names (e.g. &quot;full name&quot;) and Analyze again. Nothing was sent to the AI.</div>
             </div>
           )}
-          {!result && !error && !blockedTypes && <p className="note">Enter a service purpose and click Analyze.</p>}
+          {!result && !error && !blockedTypes && <p className="note">Click <strong>Analyze</strong> on the left to see the minimum proof.</p>}
 
           {result && a && (
             <>
@@ -326,6 +364,9 @@ export default function Page() {
                 <span className="num">{a.data_count}</span> pieces of personal data →{" "}
                 <span className="num">{a.proof_count}</span> proofs
               </div>
+              <p className="note" style={{ textAlign: "center", marginTop: 0 }}>
+                The service can confirm what it needs without collecting {a.data_count} personal data item(s).
+              </p>
 
               {/* 1. Stated purpose */}
               <h2>Stated purpose</h2>
@@ -407,8 +448,16 @@ export default function Page() {
                 determinations. Final decisions remain with the service and the user.
               </p>
 
-              {/* Audit */}
-              <h2>OrcaRouter audit</h2>
+              {/* Trust evidence — concise, always visible */}
+              <div className="evidence">
+                <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>AI: {result.audit.source}</span>
+                <span className="pill real">PII sent to AI: 0</span>
+                <span className="pill real">Latency: {result.audit.latency_ms} ms</span>
+              </div>
+
+              {/* Audit (full technical detail, one click away) */}
+              <details className="tech">
+                <summary>Technical details &amp; audit — Zero-PII evidence, OrcaRouter metadata</summary>
               <div className="audit">
                 <div className="row">
                   <span>Source</span>
@@ -453,110 +502,126 @@ export default function Page() {
                 <p className="note">{result.audit.zero_pii.basis}</p>
                 {result.audit.note && <p className="note">{result.audit.note}</p>}
               </div>
+              </details>
             </>
           )}
         </section>
       </div>
 
       {result && a && (
-        <section className="card" style={{ marginTop: 20 }}>
-          <h2>Proof request &amp; lifecycle</h2>
-
-          {/* Step 1: select + review */}
-          <p className="note">
-            Select what to share (default = the recommended minimum proof), then review the server-confirmed set and
-            consent. Issuance is bound to a signed consent receipt, so the proof cannot differ from what you consented
-            to. Signed by the <strong>Demo Trusted Issuer (simulated — not real identity verification)</strong>.
-          </p>
-          <div className="checks">
-            {a.required_claims.concat(a.optional_claims).map((c) => (
-              <label key={c} className="check">
-                <input type="checkbox" checked={consentClaims.has(c)} onChange={() => toggleConsentClaim(c)} />
-                Share: {CLAIM_LABELS[c]}
-              </label>
-            ))}
-          </div>
-          <p className="note" style={{ marginTop: 10 }}>
-            Not shared (stays with you): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
-          </p>
-          <div>
-            <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
-              Review &amp; get quote
-            </button>
-          </div>
-
-          {proofError && <div className="error" style={{ marginTop: 12 }}>{proofError}</div>}
-
-          {/* Step 2: server-confirmed quote (NOT consent) -> explicit consent -> issue */}
-          {quote && (
-            <div className="banner ok-banner" style={{ marginTop: 14 }}>
-              <strong>Server-confirmed selection (this is confirmation, not consent):</strong>
-              <div style={{ marginTop: 6 }}>Audience: <code>{quote.audience}</code></div>
-              <div>Claims: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
-              {quote.excluded.length > 0 && (
-                <div>Excluded (not held / not allowlisted): {quote.excluded.join(", ")}</div>
-              )}
-              <div>Not shared: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
-              <div className="note" style={{ marginTop: 4 }}>Quote valid until {new Date(quote.expires_at * 1000).toISOString()}</div>
-              <label className="check" style={{ marginTop: 8 }}>
-                <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
-                I explicitly consent to issue exactly the above
-              </label>
-              <div>
-                <button className="primary" onClick={issueProof} disabled={!consentGiven || quote.claims.length === 0}>
-                  Issue Signed Proof
-                </button>
-              </div>
+        <>
+          {/* STEP 3 — Proof request + explicit consent */}
+          <section className="stepcard">
+            <span className="steptag">Step 3 · Proof request &amp; consent</span>
+            <h3>Choose what to share, then consent</h3>
+            <p className="note" style={{ marginTop: 0 }}>
+              Pick what to share (default = the minimum proof). The <strong>Demo Trusted Issuer (simulated — not real
+              identity verification)</strong> confirms the exact set; you then explicitly consent. The proof can never
+              contain more than you consented to.
+            </p>
+            <div className="checks">
+              {a.required_claims.concat(a.optional_claims).map((c) => (
+                <label key={c} className="check">
+                  <input type="checkbox" checked={consentClaims.has(c)} onChange={() => toggleConsentClaim(c)} />
+                  Share: {CLAIM_LABELS[c]}
+                </label>
+              ))}
             </div>
-          )}
+            <p className="note" style={{ marginTop: 10 }}>
+              Stays private (never shared): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
+            </p>
+            <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
+              Create Proof Request
+            </button>
 
-          {/* Issued proof */}
-          {proof && (
-            <div style={{ marginTop: 16 }}>
-              <h2>Issued proof</h2>
-              <div className="audit">
-                <div className="row"><span>Issuer</span><span><code>{proof.issuer}</code></span></div>
-                <div className="row"><span>Subject (pairwise)</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
-                <div className="row"><span>Audience</span><span><code>{proof.audience}</code></span></div>
-                <div className="row"><span>Claims</span><span>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</span></div>
-                <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
-                <div className="row"><span>JTI</span><span><code className="mono">{proof.jti}</code></span></div>
+            {proofError && (
+              <div className="error" style={{ marginTop: 12 }}>
+                {proofError}
+                <div className="note">Next: adjust your selection and create the Proof Request again.</div>
               </div>
+            )}
+
+            {quote && (
+              <div className="banner ok-banner" style={{ marginTop: 14 }}>
+                <strong>Proof Request — exactly what will be issued</strong>
+                <div style={{ marginTop: 6 }}>Shared with: <code>{quote.audience}</code></div>
+                <div>Proofs: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
+                {quote.excluded.length > 0 && <div>Not available: {quote.excluded.join(", ")}</div>}
+                <div>Kept private: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+                <label className="check" style={{ marginTop: 10 }}>
+                  <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
+                  I consent to share exactly this
+                </label>
+                <div>
+                  <button className="primary" onClick={issueProof} disabled={!consentGiven || quote.claims.length === 0}>
+                    Issue Signed Proof
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* STEP 4 — Issued proof */}
+          {proof && (
+            <section className="stepcard">
+              <span className="steptag">Step 4 · Signed Proof issued</span>
+              <h3>A signed, short-lived proof — no personal data inside</h3>
+              <p className="note" style={{ marginTop: 0 }}>
+                Shares <strong>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</strong> with <code>{proof.audience}</code>,
+                signed by the Demo Issuer and valid until {new Date(proof.expires_at * 1000).toLocaleTimeString()}.
+              </p>
               {revocationCode && (
-                <div className="banner" style={{ marginTop: 10 }}>
-                  <strong>Revocation code (secret — keep it):</strong> <code className="mono">{revocationCode}</code>
-                  <div className="note">Only whoever holds this code can revoke the proof. A Verifier shown the proof cannot.</div>
+                <div className="banner">
+                  <strong>Your revocation code (demo — shown so you can revoke):</strong> <code className="mono">{revocationCode}</code>
+                  <div className="note">Only the holder of this code can revoke. A service shown the proof cannot.</div>
                 </div>
               )}
-              <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-                <button className="primary" onClick={verifyProofNow}>Verify (Verifier — token only)</button>
+              <details className="tech">
+                <summary>Proof internals (issuer, pairwise subject, id, expiry)</summary>
+                <div className="audit">
+                  <div className="row"><span>Issuer</span><span><code>{proof.issuer}</code></span></div>
+                  <div className="row"><span>Subject (pairwise, per-audience)</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
+                  <div className="row"><span>Claims</span><span>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</span></div>
+                  <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
+                  <div className="row"><span>Proof id (jti)</span><span><code className="mono">{proof.jti}</code></span></div>
+                </div>
+              </details>
+              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="primary" onClick={verifyProofNow}>Verify as the service</button>
                 <button className="primary" onClick={revokeProof} disabled={!revocationCode} style={{ background: "var(--danger)" }}>
-                  Revoke (holder — uses your code)
+                  Revoke (you hold the code)
                 </button>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Verification result */}
+          {/* STEP 5/6 — Verification result */}
           {verify && (
-            <div style={{ marginTop: 16 }}>
-              <h2>Verification</h2>
-              <div className="headline" style={{ fontSize: 20 }}>
-                <span className={verify.status === "VALID" ? "num" : ""} style={verify.status !== "VALID" ? { color: "var(--danger)" } : undefined}>
-                  {verify.status}
-                </span>
-              </div>
-              <div className="audit">
-                {(["signature", "issuer", "audience", "expiry", "revocation"] as const).map((k) => (
-                  <div className="row" key={k}>
-                    <span>{k}</span>
-                    <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? "pass" : "fail"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <section className="stepcard">
+              <span className="steptag">{verify.status === "REVOKED" ? "Step 6 · After revocation" : "Step 5 · Verification"}</span>
+              <h3>{verify.status === "VALID" ? "The service confirms the proof" : verify.status === "REVOKED" ? "The same proof no longer works" : "The proof could not be confirmed"}</h3>
+              <div className={`verdict ${verify.status === "VALID" ? "ok" : "bad"}`}>{verify.status}</div>
+              <p className="note" style={{ textAlign: "center" }}>
+                {verify.status === "VALID"
+                  ? "Signature, issuer, audience, expiry and revocation all checked independently. Now try Revoke, then Verify again."
+                  : verify.status === "REVOKED"
+                    ? "Revocation is checked at verify time — the proof is now rejected."
+                    : "Fail-closed: validity could not be established, so the proof is not accepted."}
+              </p>
+              <details className="tech">
+                <summary>Independent checks</summary>
+                <div className="audit">
+                  {(["signature", "issuer", "audience", "expiry", "revocation"] as const).map((k) => (
+                    <div className="row" key={k}>
+                      <span>{k}</span>
+                      <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? "pass" : "fail"}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </section>
           )}
-        </section>
+        </>
       )}
     </div>
   );
