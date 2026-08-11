@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-11 — requested data の正規化・カウント規則を明確化
+
+品質監査 (所見 #1) の反映。`id_photo` / `face_image` / `raw_identity_document` の写像とカウントの曖昧さを解消。
+
+- 正規カテゴリ集合と「単一 emit・distinct カウント」規則を `ClaudeCode_Delta_Instructions.md` §2/§3/§4 に明記
+- デモの "ID photo" は `id_photo` に正規化 (二重計上しない) と確定
+- `HumanProof_MASTER.md` §4/§7 に件数の数え方の注記を追加
+- 判断台帳へ D-028 を追記
+- 改変禁止ファイル (`99_REFERENCE/`, `06_RECORDS/*_Raw_Response_*`) は非改変を SHA-256 で確認
+
 ## 2026-08-11 — 記録層を追加
 
 - `06_RECORDS/` を追加

@@ -80,6 +80,8 @@ Potentially unnecessary for the stated purpose
 4 pieces of personal data → 2 proofs
 ```
 
+`4 pieces` の件数は、正規化・重複排除後の distinct な要求項目数で数える（このデモは `full_name` / `exact_birth_date` / `address` / `id_photo` の 4。"ID photo" は `id_photo` に正規化し二重計上しない）。詳細は [`ClaudeCode_Delta_Instructions.md`](../04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md) §4。
+
 AIは法務判断者でも本人確認者でもない。`Unnecessary` と断定せず、**Potentially unnecessary for the stated purpose** と表現する。最終判断はサービス事業者とユーザーに残す。
 
 ## 5. AIである必然性の説明
@@ -137,10 +139,12 @@ Proofへ入れない情報:
 - full name
 - exact date of birth
 - address
-- face image
-- ID document/image/number
+- face image（`face_image`: 素の顔写真）
+- ID document/image/number（`id_photo` / `raw_identity_document` / `driver_license_number` / `government_id_number`）
 - phone number
 - email
+
+`face_image`（素の顔写真）と `id_photo`（本人確認書類の写真）は別カテゴリとして扱い、件数は正規化・重複排除後の distinct 件数で数える（[`ClaudeCode_Delta_Instructions.md`](../04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md) §4）。
 
 ## 8. 非交渉の設計原則
 

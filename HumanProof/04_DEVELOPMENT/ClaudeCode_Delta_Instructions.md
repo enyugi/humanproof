@@ -37,12 +37,14 @@ UIに「実在人物の氏名、住所、生年月日、ID番号等の値を入�
 We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.
 ```
 
-デモ対象データ:
+デモ対象データ（正規化後・distinct 4 件）:
 
 - `full_name`
 - `exact_birth_date`
 - `address`
-- `face_image` または `id_photo`
+- `id_photo`
+
+デモ文の "ID photo" は正規カテゴリ `id_photo` に写像する（§4 の正規化規則に従い `face_image` / `raw_identity_document` へ二重計上しない）。いずれも実値はカテゴリ名だけを送り、実在人物の値は送信前に block または mask する。
 
 既存の単純な18+入力もテストケースとして残す。
 
@@ -78,7 +80,7 @@ Before / Afterの要約を表示:
 4 pieces of personal data → 2 proofs
 ```
 
-カウントは実データから計算し、固定値を偽装しない。
+カウントは実データから計算し、固定値を偽装しない。件数（"N pieces"）は正規化・重複排除後の `detected_requested_data` の distinct 件数とし、同一の要求項目を複数 enum で二重計上しない（§4 参照）。
 
 ## 4. Structured output v2
 
@@ -131,13 +133,21 @@ Before / Afterの要約を表示:
 }
 ```
 
-必要なら `id_photo` を内部正規化して `raw_identity_document` または `face_image` と関連付けてよいが、UI上の原入力は失わない。
+### 正規化とカウント規則（決定論）
+
+`detected_requested_data` は次の意味論で一意に確定させる。
+
+- **正規カテゴリ**: `full_name` / `exact_birth_date` / `address` / `phone_number` / `email`（スカラ PII）、`face_image`（素の顔写真・書類なし）、`id_photo`（本人確認書類の写真＝書類画像を含む）、`driver_license_number` / `government_id_number`（ID 番号）、`raw_identity_document`（アップロードされた本人確認書類ファイル / スキャン）。
+- **単一 emit**: 1 つの要求項目が複数 enum に関連しうる場合、**最も具体的な単一の正規値を 1 回だけ記録**する。例: "ID photo" → `id_photo`（`face_image` や `raw_identity_document` を追加で列挙しない）。ポリシー分類のための内部関連付けは可だが、`detected_requested_data` には重複を残さない。
+- **distinct カウント**: `4 pieces of personal data → 2 proofs` の件数は、正規化・重複排除後の `detected_requested_data` の distinct 件数とする。よってデモ（`full_name` / `exact_birth_date` / `address` / `id_photo`）は決定論的に 4。
+- UI 上の原入力（ユーザーが書いた元の語）は表示のために失わない。
 
 Validation:
 
 - Claim Catalog外のclaimを拒否
 - required / optionalの重複禁止
 - PIIをproof claimへ変換しない
+- `detected_requested_data` は正規化・重複排除し、同一の要求項目を複数 enum で二重計上しない（distinct 件数で数える）
 - potentially unnecessaryは現在要求中または入力から抽出された項目に限定
 - 空・不正出力は1回だけ再試行し、その後安全なエラー
 - LLM出力の文字列をコードやHTMLとして実行しない

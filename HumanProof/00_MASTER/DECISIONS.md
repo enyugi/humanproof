@@ -32,6 +32,7 @@
 | D-025 | 未検証 | HumanProofのAI-assisted minimizationが十分に独自 | 両レビュー | 競合機能比較が必要 |
 | D-026 | 未検証 | 4件のPIIを2 Proofへ置換すると導入効果が出る | 統合判断 | 漏洩影響、離脱率、コスト等の効果測定が必要 |
 | D-027 | 採用 | LLMへ送るrequested dataは種別名のみとし、実値はblock/maskする | 統合判断 | サービス説明へ実PIIが混入する経路も閉じる |
+| D-028 | 採用 | requested dataを正規カテゴリへ正規化し、同一項目は単一 emit・distinct 件数で数える | 品質監査 | `id_photo`/`face_image`/`raw_identity_document` の二重計上を防ぎ「4 pieces → 2 proofs」の件数を決定論化する (MASTER §4 / Delta §4) |
 
 ## 変更方法
 
