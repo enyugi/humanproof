@@ -2,6 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { REQUESTED_DATA_CATEGORIES, CATEGORY_LABELS, CLAIM_LABELS, type RequestedDataCategory, type Claim } from "@/lib/claims";
+import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
+
+interface ProofSummary {
+  issuer: string;
+  subject: string;
+  audience: string;
+  claims: Claim[];
+  issued_at: number;
+  expires_at: number;
+  jti: string;
+}
+interface VerifyResult {
+  status: string;
+  checks: { signature: boolean; issuer: boolean; audience: boolean; expiry: boolean; revocation: boolean };
+  claims?: Claim[];
+  subject?: string;
+  expires_at?: number;
+}
+interface Quote {
+  quote: string;
+  audience: string;
+  claims: Claim[];
+  excluded: Claim[];
+  withheld_pii: RequestedDataCategory[];
+  expires_at: number;
+}
 
 const DEMO_TEXT =
   "We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.";
@@ -60,6 +86,27 @@ export default function Page() {
   const [blockedTypes, setBlockedTypes] = useState<string[] | null>(null);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
 
+  // Proof lifecycle state
+  const [consentClaims, setConsentClaims] = useState<Set<Claim>>(new Set());
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [proof, setProof] = useState<ProofSummary | null>(null);
+  const [proofToken, setProofToken] = useState<string | null>(null);
+  const [revocationCode, setRevocationCode] = useState<string | null>(null);
+  const [verify, setVerify] = useState<VerifyResult | null>(null);
+  const [proofError, setProofError] = useState<string | null>(null);
+
+  // Any change to audience or the selected claims invalidates a prior quote: the user must review
+  // and explicitly consent to the exact set again before issuance (Problem 1/2).
+  useEffect(() => {
+    setQuote(null);
+    setConsentGiven(false);
+    setProof(null);
+    setProofToken(null);
+    setRevocationCode(null);
+    setVerify(null);
+  }, [audience, consentClaims]);
+
   useEffect(() => {
     fetch("/api/provider")
       .then((r) => r.json())
@@ -93,11 +140,103 @@ export default function Page() {
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Analysis failed");
-      setResult(data as AnalyzeResponse);
+      const parsed = data as AnalyzeResponse;
+      setResult(parsed);
+      // seed the proof flow with the recommended minimum proof
+      setConsentClaims(new Set(parsed.analysis.required_claims));
+      setConsentGiven(false);
+      setProof(null);
+      setProofToken(null);
+      setVerify(null);
+      setProofError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function toggleConsentClaim(c: Claim) {
+    setConsentClaims((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  }
+
+  async function reviewQuote() {
+    setProofError(null);
+    setProof(null);
+    setProofToken(null);
+    setRevocationCode(null);
+    setVerify(null);
+    setConsentGiven(false);
+    try {
+      const res = await fetch("/api/proof/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience, claims: Array.from(consentClaims) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Quote failed");
+      setQuote(data as Quote);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Quote failed");
+    }
+  }
+
+  async function issueProof() {
+    if (!quote || !consentGiven) return;
+    setProofError(null);
+    setVerify(null);
+    try {
+      const res = await fetch("/api/proof/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote: quote.quote, consent: consentGiven }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issue failed");
+      setProof(data.proof as ProofSummary);
+      setProofToken(data.token as string);
+      setRevocationCode(data.revocationCode as string);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Issue failed");
+    }
+  }
+
+  async function verifyProofNow() {
+    if (!proofToken) return;
+    setProofError(null);
+    try {
+      const res = await fetch("/api/proof/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: proofToken, expectedAudience: audience }),
+      });
+      setVerify((await res.json()) as VerifyResult);
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Verify failed");
+    }
+  }
+
+  async function revokeProof() {
+    if (!revocationCode) return;
+    setProofError(null);
+    try {
+      const res = await fetch("/api/proof/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revocationCode }), // holder's secret code, NOT the proof token
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Revoke failed (HTTP ${res.status})`);
+      }
+      await verifyProofNow(); // re-verify -> should now show REVOKED
+    } catch (e) {
+      setProofError(e instanceof Error ? e.message : "Revoke failed");
     }
   }
 
@@ -318,6 +457,107 @@ export default function Page() {
           )}
         </section>
       </div>
+
+      {result && a && (
+        <section className="card" style={{ marginTop: 20 }}>
+          <h2>Proof request &amp; lifecycle</h2>
+
+          {/* Step 1: select + review */}
+          <p className="note">
+            Select what to share (default = the recommended minimum proof), then review the server-confirmed set and
+            consent. Issuance is bound to a signed consent receipt, so the proof cannot differ from what you consented
+            to. Signed by the <strong>Demo Trusted Issuer (simulated — not real identity verification)</strong>.
+          </p>
+          <div className="checks">
+            {a.required_claims.concat(a.optional_claims).map((c) => (
+              <label key={c} className="check">
+                <input type="checkbox" checked={consentClaims.has(c)} onChange={() => toggleConsentClaim(c)} />
+                Share: {CLAIM_LABELS[c]}
+              </label>
+            ))}
+          </div>
+          <p className="note" style={{ marginTop: 10 }}>
+            Not shared (stays with you): {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
+          </p>
+          <div>
+            <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
+              Review &amp; get quote
+            </button>
+          </div>
+
+          {proofError && <div className="error" style={{ marginTop: 12 }}>{proofError}</div>}
+
+          {/* Step 2: server-confirmed quote (NOT consent) -> explicit consent -> issue */}
+          {quote && (
+            <div className="banner ok-banner" style={{ marginTop: 14 }}>
+              <strong>Server-confirmed selection (this is confirmation, not consent):</strong>
+              <div style={{ marginTop: 6 }}>Audience: <code>{quote.audience}</code></div>
+              <div>Claims: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
+              {quote.excluded.length > 0 && (
+                <div>Excluded (not held / not allowlisted): {quote.excluded.join(", ")}</div>
+              )}
+              <div>Not shared: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+              <div className="note" style={{ marginTop: 4 }}>Quote valid until {new Date(quote.expires_at * 1000).toISOString()}</div>
+              <label className="check" style={{ marginTop: 8 }}>
+                <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
+                I explicitly consent to issue exactly the above
+              </label>
+              <div>
+                <button className="primary" onClick={issueProof} disabled={!consentGiven || quote.claims.length === 0}>
+                  Issue Signed Proof
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Issued proof */}
+          {proof && (
+            <div style={{ marginTop: 16 }}>
+              <h2>Issued proof</h2>
+              <div className="audit">
+                <div className="row"><span>Issuer</span><span><code>{proof.issuer}</code></span></div>
+                <div className="row"><span>Subject (pairwise)</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
+                <div className="row"><span>Audience</span><span><code>{proof.audience}</code></span></div>
+                <div className="row"><span>Claims</span><span>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</span></div>
+                <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
+                <div className="row"><span>JTI</span><span><code className="mono">{proof.jti}</code></span></div>
+              </div>
+              {revocationCode && (
+                <div className="banner" style={{ marginTop: 10 }}>
+                  <strong>Revocation code (secret — keep it):</strong> <code className="mono">{revocationCode}</code>
+                  <div className="note">Only whoever holds this code can revoke the proof. A Verifier shown the proof cannot.</div>
+                </div>
+              )}
+              <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+                <button className="primary" onClick={verifyProofNow}>Verify (Verifier — token only)</button>
+                <button className="primary" onClick={revokeProof} disabled={!revocationCode} style={{ background: "var(--danger)" }}>
+                  Revoke (holder — uses your code)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Verification result */}
+          {verify && (
+            <div style={{ marginTop: 16 }}>
+              <h2>Verification</h2>
+              <div className="headline" style={{ fontSize: 20 }}>
+                <span className={verify.status === "VALID" ? "num" : ""} style={verify.status !== "VALID" ? { color: "var(--danger)" } : undefined}>
+                  {verify.status}
+                </span>
+              </div>
+              <div className="audit">
+                {(["signature", "issuer", "audience", "expiry", "revocation"] as const).map((k) => (
+                  <div className="row" key={k}>
+                    <span>{k}</span>
+                    <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? "pass" : "fail"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

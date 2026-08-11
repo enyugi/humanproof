@@ -33,6 +33,7 @@
 | D-026 | 未検証 | 4件のPIIを2 Proofへ置換すると導入効果が出る | 統合判断 | 漏洩影響、離脱率、コスト等の効果測定が必要 |
 | D-027 | 採用 | LLMへ送るrequested dataは種別名のみとし、実値はblock/maskする | 統合判断 | サービス説明へ実PIIが混入する経路も閉じる |
 | D-028 | 採用 | requested dataを正規カテゴリへ正規化し、同一項目は単一 emit・distinct 件数で数える | 品質監査 | `id_photo`/`face_image`/`raw_identity_document` の二重計上を防ぎ「4 pieces → 2 proofs」の件数を決定論化する (MASTER §4 / Delta §4) |
+| D-029 | 採用 | Proofセキュリティ設計 (4次レビューでgreen確定): 署名鍵は per-install ランダム seed をローカル永続 (ソース非搭載・不正seedは拒否・遅延初期化)。発行は署名付き quote(=サーバ確認) + 明示 consent の二要件、quote は単回使用。TTLはサーバ固定。失効は保有者の秘密 revocation code のみ。検証は署名後に typ/allowlist/重複・空・上限長・未来iat・TTL上限を厳格検証。**永続は fail-closed**(atomic write 0600・load時 shape/size 検証): 状態が読書不能/破損/上限超なら store=unavailable。**応答形状を統一**: 変更系(発行/失効)は HTTP 503、参照系(検証)は 200 + 構造化 REVOCATION_UNAVAILABLE (VALID にしない・未処理例外を出さない)。**旧形式(seedHex/revoked/revAuth・0644)は seed と期限内失効を保持したまま現行形式(0600)へ in-place 移行**し、途中失敗時は旧ファイルを壊さず fail-closed (削除で回復しない) | セキュリティレビュー(4回) | 鍵漏洩(source)・同意と発行の乖離・確認と同意の混同・TTL操作・提示者失効・再起動での失効消失・永続失敗の握り潰し(fail-open)・既存デモ環境の更新破綻・不正/巨大payloadを防ぐ。Demo Issuer/独自形式/ローカル単一プロセス永続は本番非準拠として明示 (実装記録: [`../06_RECORDS/Implementation_Notes_2026-08-11.md`](../06_RECORDS/Implementation_Notes_2026-08-11.md)) |
 
 ## 読み方
 

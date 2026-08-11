@@ -188,6 +188,7 @@ MVPはHuman向けSelective Proofに集中する。AI Agentは開発対象では�
 | 採用 | pairwise subject、Zero PII to LLM、OrcaRouter実ログ |
 | 採用 | requested dataは種別名のみ送信し実値はblock/mask (D-027) |
 | 採用 | requested dataを正規化し、単一emit・distinct件数で数える (D-028) |
+| 採用 | Proofは per-install秘密鍵(source非搭載)・quote(単回)+明示consent・サーバ固定TTL・保有者codeのみ失効・fail-closed永続(異常時 変更系503/参照系REVOCATION_UNAVAILABLE)・旧形式0644のin-place安全移行・厳格bounded検証 (D-029) |
 | 保留 | 規制・業界慣習・侵害事例・過去事例とのRAG/照合 |
 | 保留 | Adult業界を初期市場とすること |
 | 保留 | 実Issuer、価格、課金、最初のBeachhead |
