@@ -93,6 +93,8 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 
 .disclaimer { font-size: 12px; color: var(--muted); border-left: 3px solid var(--border); padding-left: 10px; margin-top: 12px; }
 .banner { border: 1px solid var(--warn); color: var(--warn); background: rgba(227,179,65,0.08); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+.banner code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; }
+.banner.ok-banner { border-color: var(--accent); color: var(--accent); background: rgba(76,195,138,0.08); }
 .error { border: 1px solid var(--danger); color: var(--danger); background: rgba(240,119,106,0.08); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 
 .audit { font-size: 12px; color: var(--muted); }

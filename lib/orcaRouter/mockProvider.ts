@@ -2,7 +2,7 @@
 // It is CLEARLY LABELLED as MOCK (meta.source = "MOCK", note says it is not a real model call)
 // so the audit never presents fabricated "actual" metadata (D-011, NFR-06/NFR-07).
 //
-// When ORCAROUTER_API_KEY is set, the OpenRouter provider replaces this one and the same
+// When ORCAROUTER_API_KEY is set, the OrcaRouter provider replaces this one and the same
 // downstream schema-validation + policy-enforcement pipeline applies unchanged.
 
 import type { OrcaInput, OrcaProvider, OrcaResult } from "./types";

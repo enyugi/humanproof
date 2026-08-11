@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runAnalysis, AnalyzeError, type AnalyzeInput } from "@/lib/analyze";
+import { runAnalysis, AnalyzeError, PiiBlockedError, type AnalyzeInput } from "@/lib/analyze";
 
 export const runtime = "nodejs";
 
@@ -24,6 +24,10 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof PiiBlockedError) {
+      // 422 — the request is blocked, nothing was sent to the gateway.
+      return NextResponse.json({ error: err.message, blocked: true, pii_finding_types: err.findingTypes }, { status: 422 });
+    }
     if (err instanceof AnalyzeError) {
       return NextResponse.json({ error: err.message }, { status: 422 });
     }

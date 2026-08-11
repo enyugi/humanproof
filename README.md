@@ -23,9 +23,11 @@ Open the page, keep the prefilled 18+ demo, and click **Analyze** → `4 pieces 
 ## OrcaRouter (LLM gateway)
 
 Without a key the app uses a **MOCK** provider — a deterministic rule-based analyzer, clearly
-labelled `MOCK` in the audit panel (it never presents fabricated "actual" metadata). To use the
-real gateway, copy `.env.local.example` to `.env.local` and set `ORCAROUTER_API_KEY` (OpenRouter-
-compatible). The key is server-side only; the same validation + policy pipeline applies unchanged.
+labelled `MOCK` in the UI (before analysis) and in the audit panel; it never presents fabricated
+"actual" metadata. To use the real gateway, copy `.env.local.example` to `.env.local` and set
+`ORCAROUTER_API_KEY`. OrcaRouter exposes an **OpenAI-compatible** chat completions API at
+`https://api.orcarouter.ai/v1` (default model `orcarouter/auto`). The key is server-side only;
+the same validation + policy pipeline applies unchanged.
 
 ## Quality gates
 

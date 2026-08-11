@@ -1,16 +1,20 @@
-// Real OrcaRouter provider (OpenRouter-compatible). Server-side only — the key never reaches
-// the client. Not exercised until ORCAROUTER_API_KEY is set. Source: Requirements FR-12/NFR-03/NFR-07.
+// Real OrcaRouter provider (OpenAI-compatible chat completions API). Server-side only — the key
+// never reaches the client. Not exercised until ORCAROUTER_API_KEY is set.
+// Source: Requirements FR-12/NFR-03/NFR-07.
 
 import type { OrcaInput, OrcaProvider, OrcaResult } from "./types";
 
-const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_MODEL = "openai/gpt-4o-mini";
+export const ORCAROUTER_BASE_URL = "https://api.orcarouter.ai/v1";
+export const ORCAROUTER_DEFAULT_MODEL = "orcarouter/auto";
 
-export class OpenRouterProvider implements OrcaProvider {
+type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
+
+export class OrcaRouterProvider implements OrcaProvider {
   constructor(
     private apiKey: string,
-    private baseUrl: string = process.env.ORCAROUTER_BASE_URL ?? DEFAULT_BASE_URL,
-    private model: string = process.env.ORCAROUTER_MODEL ?? DEFAULT_MODEL,
+    private baseUrl: string = process.env.ORCAROUTER_BASE_URL ?? ORCAROUTER_BASE_URL,
+    private model: string = process.env.ORCAROUTER_MODEL ?? ORCAROUTER_DEFAULT_MODEL,
+    private fetchImpl: FetchLike = fetch,
   ) {}
 
   async analyze(input: OrcaInput): Promise<OrcaResult> {
@@ -21,8 +25,9 @@ export class OpenRouterProvider implements OrcaProvider {
       instructions: "Return only the required structured JSON (version '2').",
     });
 
+    const url = `${this.baseUrl}/chat/completions`;
     const start = Date.now();
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+    const res = await this.fetchImpl(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -59,16 +64,19 @@ export class OpenRouterProvider implements OrcaProvider {
       raw = {};
     }
 
-    // Only report cost if the gateway actually returned it (never fabricate — D-011).
+    // Resolved model: prefer the gateway's explicit header, then the body, else null.
+    const resolvedModel = res.headers.get("X-Orca-Resolved-Model") ?? body.model ?? null;
+    // Only report cost/request-id if the gateway actually returned them (never fabricate — D-011).
     const cost = body.usage?.total_cost ?? body.usage?.cost ?? null;
+    const requestId = body.id ?? null;
 
     return {
       raw,
       meta: {
-        source: "OPENROUTER",
-        model: body.model ?? this.model,
+        source: "ORCAROUTER",
+        model: resolvedModel,
         latency_ms,
-        request_id: body.id ?? "unknown",
+        request_id: requestId,
         cost_usd: typeof cost === "number" ? cost : null,
         note: typeof cost === "number" ? undefined : "Cost not returned by gateway. See OrcaRouter request log.",
       },

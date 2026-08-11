@@ -1,17 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { runAnalysis } from "@/lib/analyze";
+import { runAnalysis, PiiBlockedError } from "@/lib/analyze";
 import { MockProvider } from "@/lib/orcaRouter/mockProvider";
 import { SUPPORTED_CLAIMS } from "@/lib/claims";
 import type { OrcaInput, OrcaProvider, OrcaResult } from "@/lib/orcaRouter/types";
-import { containsLikelyRawPii } from "@/lib/piiShield";
 
 const mock = () => new MockProvider();
 
 // Capturing provider: records exactly what would be sent to the gateway.
 class CapturingProvider implements OrcaProvider {
   public last?: OrcaInput;
+  public calls = 0;
   constructor(private inner: OrcaProvider) {}
   async analyze(input: OrcaInput): Promise<OrcaResult> {
+    this.calls++;
     this.last = input;
     return this.inner.analyze(input);
   }
@@ -74,27 +75,20 @@ describe("D. Prompt injection", () => {
   });
 });
 
-describe("E. Raw PII in service text", () => {
-  it("masks real values before egress; nothing raw reaches the provider; audit shows zero", async () => {
+describe("E. Raw PII in service text -> BLOCK (nothing sent)", () => {
+  it("blocks and never calls the provider when real values are present", async () => {
     const cap = new CapturingProvider(mock());
-    const r = await runAnalysis(
-      {
-        purposeText:
-          "Our user Jane was born 1990-05-01, email jane.doe@example.com, phone +81 90-1234-5678, ID 1234567890, lives at 221 Baker Street.",
-        requestedData: ["full_name"],
-      },
-      cap,
-    );
-    expect(r.pii_masked).toBe(true);
-    expect(r.pii_findings.length).toBeGreaterThan(0);
-    // what was actually sent to the gateway:
-    const sent = cap.last!.sanitizedServiceText;
-    expect(sent).not.toContain("jane.doe@example.com");
-    expect(sent).not.toContain("1990-05-01");
-    expect(sent).not.toContain("1234567890");
-    expect(containsLikelyRawPii(sent)).toBe(false);
-    expect(r.audit.raw_identity_documents_sent_to_ai).toBe(0);
-    expect(r.audit.personal_identity_attributes_sent_to_ai).toBe(0);
+    await expect(
+      runAnalysis(
+        {
+          purposeText:
+            "Our user Jane was born 1990-05-01, email jane.doe@example.com, phone +81 90-1234-5678, ID 1234567890.",
+          requestedData: ["full_name"],
+        },
+        cap,
+      ),
+    ).rejects.toBeInstanceOf(PiiBlockedError);
+    expect(cap.calls).toBe(0); // provider was never called => zero egress
   });
 });
 
@@ -107,11 +101,61 @@ describe("F. Simple case", () => {
   });
 });
 
-describe("Audit labelling", () => {
-  it("mock provider is clearly labelled MOCK with null cost", async () => {
+describe("Item 2. requestedData egress boundary", () => {
+  it("normalizes + drops non-allowlist / PII values before they reach the provider", async () => {
+    const cap = new CapturingProvider(mock());
+    const junk = ["full_name", "Jane Doe", "1990-05-01", "<script>alert(1)</script>", "not_a_category"];
+    const r = await runAnalysis({ purposeText: "We allow real humans aged 18+ only.", requestedData: junk }, cap);
+
+    // only the canonical category reached the provider
+    expect(cap.last!.requestedDataCategories).toEqual(["full_name"]);
+    // none of the junk/PII appears anywhere in the egress payload
+    const egress = cap.last!.sanitizedServiceText + " " + cap.last!.requestedDataCategories.join(" ");
+    for (const bad of ["Jane Doe", "1990-05-01", "<script>", "not_a_category"]) {
+      expect(egress).not.toContain(bad);
+    }
+    expect(r.audit.zero_pii.requested_data_dropped).toBe(4);
+  });
+});
+
+describe("Item 3. Zero-PII proven with a known raw-value list (not the shield's own regex)", () => {
+  const KNOWN_RAW_VALUES = [
+    { label: "given name", text: "Please verify Jane before entry." },
+    { label: "japanese address", text: "住所は東京都渋谷区神南1-2-3です。" },
+    { label: "japanese date", text: "生年月日は1990年5月1日です。" },
+    { label: "japanese postal code", text: "郵便番号 〒150-0001 を確認します。" },
+    { label: "email", text: "Contact jane.doe@example.com to confirm." },
+    { label: "id number", text: "Member ID 1234567890 must be checked." },
+    { label: "phone", text: "Call +81 90-1234-5678 to verify." },
+  ];
+
+  for (const c of KNOWN_RAW_VALUES) {
+    it(`blocks '${c.label}' so no raw value can egress`, async () => {
+      const cap = new CapturingProvider(mock());
+      await expect(runAnalysis({ purposeText: c.text, requestedData: [] }, cap)).rejects.toBeInstanceOf(PiiBlockedError);
+      expect(cap.calls).toBe(0);
+    });
+  }
+
+  it("clean input proceeds and the egress payload contains none of the known raw values", async () => {
+    const cap = new CapturingProvider(mock());
+    await runAnalysis({ purposeText: "We allow real humans aged 18+ only.", requestedData: ["full_name"] }, cap);
+    const egress = cap.last!.sanitizedServiceText + " " + cap.last!.requestedDataCategories.join(" ");
+    for (const known of ["Jane", "東京都渋谷区", "1990年5月1日", "150-0001", "jane.doe@example.com", "1234567890"]) {
+      expect(egress).not.toContain(known);
+    }
+    expect(cap.calls).toBeGreaterThan(0);
+  });
+});
+
+describe("Audit labelling (MOCK)", () => {
+  it("mock provider is clearly labelled MOCK with null cost and measured zero-PII evidence", async () => {
     const r = await runAnalysis({ purposeText: "18+ only", requestedData: [] }, mock());
     expect(r.audit.source).toBe("MOCK");
     expect(r.audit.cost_usd).toBeNull();
     expect(r.audit.note).toMatch(/MOCK/);
+    expect(r.audit.zero_pii.personal_identity_attributes_sent_to_ai).toBe(0);
+    expect(r.audit.zero_pii.raw_identity_documents_sent_to_ai).toBe(0);
+    expect(r.audit.zero_pii.egress_payload_scanned).toBe(true);
   });
 });
