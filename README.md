@@ -50,7 +50,16 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Open the page, keep the prefilled 18+ demo, and click **Analyze** → `4 pieces of personal data → 2 proofs`.
+The page is a **guided one-path demo** with a progress rail (Analyze → Proof request → Consent → Issue → Verify → Revoke).
+Keep the prefilled 18+ demo and follow the steps:
+
+1. **Analyze** → `4 pieces of personal data → 2 proofs`.
+2. **Create Proof Request**, tick **consent**, **Issue Signed Proof**.
+3. **Verify as the service** → `VALID`.
+4. **Revoke** → the same proof re-verifies as `REVOKED`.
+
+Deep technical evidence (Zero-PII audit, OrcaRouter metadata, signature checks, proof internals) is one click away under
+each step's *Technical details* toggle, so the happy path stays legible. `MOCK` vs real OrcaRouter is shown before you analyze.
 
 ## OrcaRouter (LLM gateway)
 
