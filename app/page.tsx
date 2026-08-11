@@ -319,23 +319,24 @@ export default function Page() {
           <label htmlFor="purpose">Purpose and current process (required)</label>
           <textarea id="purpose" value={purposeText} onChange={(e) => setPurposeText(e.target.value)} />
           <p className="note">
-            Describe the purpose using data-type names only. Do not enter real people&apos;s names, addresses, dates of
-            birth, or ID numbers — if detected, the request is <strong>blocked</strong> (not sent to the AI) so you can remove them.
+            Data-type names only. Real names / addresses / dates / ID numbers are <strong>blocked</strong> (never sent to the AI).
           </p>
 
-          <label>Currently requested data (categories only)</label>
-          <div className="checks">
-            {REQUESTED_DATA_CATEGORIES.map((cat) => (
-              <label key={cat} className="check">
-                <input type="checkbox" checked={selected.has(cat)} onChange={() => toggle(cat)} />
-                {CATEGORY_LABELS[cat]}
-              </label>
-            ))}
-          </div>
-
-          <button className="primary" onClick={analyze} disabled={loading}>
+          <button className="primary block" onClick={analyze} disabled={loading}>
             {buttonLabel}
           </button>
+
+          <details className="tech">
+            <summary>Currently requested data — {selected.size} selected (edit)</summary>
+            <div className="checks">
+              {REQUESTED_DATA_CATEGORIES.map((cat) => (
+                <label key={cat} className="check">
+                  <input type="checkbox" checked={selected.has(cat)} onChange={() => toggle(cat)} />
+                  {CATEGORY_LABELS[cat]}
+                </label>
+              ))}
+            </div>
+          </details>
         </section>
 
         {/* RESULT */}
