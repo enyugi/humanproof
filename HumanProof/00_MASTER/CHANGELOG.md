@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-11 — Proof系 セキュリティ3次レビュー対応（永続 fail-closed・D-029 green確定）
+
+- 永続の信頼境界を fail-closed 化（保存失敗の握り潰し=fail-open を修正）: 状態が読書不能/破損/容量超なら発行・失効は 503、検証は REVOCATION_UNAVAILABLE
+- quote を単回使用に確定、鍵は遅延初期化＋不正 seed 拒否、状態ファイルは atomic write(0600)
+- D-029・MASTER §11・README・実装記録を最終設計へ同期（green 後）
+- テスト追加: `proofStore.test.ts`(4) fail-closed / `proofPersistence.test.ts` 実再起動境界。全体 64 green + 実プロセス kill+restart の runtime 検証
+
 ## 2026-08-11 — Proof系 セキュリティ2次レビュー対応（D-029 確定）
 
 - D-029 を最終設計へ改訂（per-install 秘密鍵永続 / quote+明示consent 分離 / 保有者秘密codeでの失効・永続 / 厳格bounded検証）

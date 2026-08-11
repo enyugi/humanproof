@@ -33,7 +33,7 @@
 | D-026 | 未検証 | 4件のPIIを2 Proofへ置換すると導入効果が出る | 統合判断 | 漏洩影響、離脱率、コスト等の効果測定が必要 |
 | D-027 | 採用 | LLMへ送るrequested dataは種別名のみとし、実値はblock/maskする | 統合判断 | サービス説明へ実PIIが混入する経路も閉じる |
 | D-028 | 採用 | requested dataを正規カテゴリへ正規化し、同一項目は単一 emit・distinct 件数で数える | 品質監査 | `id_photo`/`face_image`/`raw_identity_document` の二重計上を防ぎ「4 pieces → 2 proofs」の件数を決定論化する (MASTER §4 / Delta §4) |
-| D-029 | 採用 | Proofセキュリティ設計 (2次レビュー確定): 署名鍵は per-install ランダム seed をローカル永続 (ソース非搭載)。発行は署名付き quote(=サーバ確認) + 明示 consent の二要件。TTLはサーバ固定。失効は保有者だけが持つ秘密 revocation code のみ受理し状態を永続 (再起動後も REVOKED 維持)。検証は署名後に typ/allowlist claim/重複・空・上限長・未来iat・TTL上限を厳格検証。pairwise subject は seed 由来で安定 | セキュリティレビュー(2回) | 鍵漏洩(source)・同意と発行の乖離・確認と同意の混同・TTL外部操作・提示者による失効・再起動での失効消失・不正/巨大payload受理を防ぐ。Demo Issuer/独自形式/ローカル単一プロセス永続は本番非準拠として明示 (実装記録: [`../06_RECORDS/Implementation_Notes_2026-08-11.md`](../06_RECORDS/Implementation_Notes_2026-08-11.md)) |
+| D-029 | 採用 | Proofセキュリティ設計 (3次レビューでgreen確定): 署名鍵は per-install ランダム seed をローカル永続 (ソース非搭載・不正seedは拒否・遅延初期化)。発行は署名付き quote(=サーバ確認) + 明示 consent の二要件、quote は単回使用。TTLはサーバ固定。失効は保有者の秘密 revocation code のみ。検証は署名後に typ/allowlist/重複・空・上限長・未来iat・TTL上限を厳格検証。**永続は fail-closed**: 状態が読書不能/破損/上限超なら store=unavailable とし、発行・失効は 503、検証は VALID にせず REVOCATION_UNAVAILABLE を返す。状態は atomic write(0600)で永続し、実プロセス再起動後も失効を維持 | セキュリティレビュー(3回) | 鍵漏洩(source)・同意と発行の乖離・確認と同意の混同・TTL操作・提示者失効・再起動での失効消失・永続失敗の握り潰し(fail-open)・不正/巨大payloadを防ぐ。Demo Issuer/独自形式/ローカル単一プロセス永続は本番非準拠として明示 (実装記録: [`../06_RECORDS/Implementation_Notes_2026-08-11.md`](../06_RECORDS/Implementation_Notes_2026-08-11.md)) |
 
 ## 読み方
 

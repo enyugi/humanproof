@@ -4,8 +4,8 @@ import { revokeByCode } from "@/lib/proof/proof";
 export const runtime = "nodejs";
 
 // Revocation requires the secret revocation code returned to the holder at issue time — NOT the
-// proof token. A Verifier who is merely shown the proof cannot revoke it (Problem 3). Arbitrary
-// identifiers are rejected, so nobody can revoke unrelated proofs or bloat memory (Problem 3/5).
+// proof token (Problem 3). Fail-closed: if the revocation cannot be safely persisted, do not
+// return success (invariant 4).
 export async function POST(req: Request) {
   let body: { revocationCode?: string };
   try {
@@ -17,9 +17,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A revocation code is required." }, { status: 400 });
   }
 
-  const ok = revokeByCode(body.revocationCode.trim());
-  if (!ok) {
-    return NextResponse.json({ error: "Unknown or expired revocation code." }, { status: 422 });
-  }
-  return NextResponse.json({ revoked: true });
+  const result = revokeByCode(body.revocationCode.trim());
+  if (result === "revoked") return NextResponse.json({ revoked: true });
+  if (result === "unknown-code") return NextResponse.json({ error: "Unknown or expired revocation code." }, { status: 422 });
+  return NextResponse.json({ error: "Proof state is unavailable; revocation not recorded." }, { status: 503 });
 }

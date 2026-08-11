@@ -13,7 +13,10 @@ import { SUPPORTED_CLAIMS, type Claim } from "../claims";
 import { ClaimEnum } from "../schema";
 import { DEMO_ISSUER_ID, getIssuerPrivateKey, getIssuerPublicKey, pairwiseSubject } from "./issuer";
 import { DEMO_USER_HELD_CLAIMS } from "./demoUser";
-import { isRevoked, addRevoked, putRevAuth, lookupRevAuth } from "./store";
+import { revocationStatus, addRevoked, putRevAuth, lookupRevAuth, storeHealthy, isPersistent } from "./store";
+
+/** Thrown when a proof cannot be issued because revocation authority cannot be safely persisted. */
+export class IssueUnavailableError extends Error {}
 
 export const POLICY_TTL_SECONDS = 300;
 export const MAX_TTL_SECONDS = 300;
@@ -135,19 +138,25 @@ export function issueConsentedProof(input: IssueConsentedProofInput): IssueResul
   };
 
   // Revocation authority: a high-entropy secret code, returned only to the holder. We store its
-  // HASH mapped to (jti, exp). The proof token does NOT contain the code (Problem 3).
+  // HASH mapped to (jti, exp). The proof token does NOT contain the code (Problem 3). If the
+  // authority cannot be safely persisted, we do NOT issue a proof (fail-closed — invariant 3).
   const revocationCode = randomBytes(32).toString("base64url");
-  putRevAuth(hashCode(revocationCode), payload.jti, payload.exp, nowMs);
+  if (!putRevAuth(hashCode(revocationCode), payload.jti, payload.exp, nowMs)) {
+    throw new IssueUnavailableError("Cannot persist revocation authority; proof not issued.");
+  }
 
   return { token: encodeToken(payload), payload, excluded_claims: excluded, revocationCode };
 }
 
-/** Revoke using the secret revocation code (holder authority), not the proof token. */
-export function revokeByCode(revocationCode: string, nowMs = Date.now()): boolean {
-  if (typeof revocationCode !== "string" || revocationCode.length === 0 || revocationCode.length > MAX_STR) return false;
+export type RevokeResult = "revoked" | "unknown-code" | "unavailable";
+
+/** Revoke using the secret revocation code (holder authority), not the proof token. Fail-closed. */
+export function revokeByCode(revocationCode: string, nowMs = Date.now()): RevokeResult {
+  if (typeof revocationCode !== "string" || revocationCode.length === 0 || revocationCode.length > MAX_STR) return "unknown-code";
+  if (isPersistent() && !storeHealthy()) return "unavailable"; // cannot safely record a revocation
   const entry = lookupRevAuth(hashCode(revocationCode), nowMs);
-  if (!entry) return false;
-  return addRevoked(entry.jti, entry.exp, nowMs);
+  if (!entry) return "unknown-code";
+  return addRevoked(entry.jti, entry.exp, nowMs) ? "revoked" : "unavailable";
 }
 
 export type VerifyStatus =
@@ -157,7 +166,8 @@ export type VerifyStatus =
   | "BAD_SIGNATURE"
   | "AUDIENCE_MISMATCH"
   | "EXPIRED"
-  | "REVOKED";
+  | "REVOKED"
+  | "REVOCATION_UNAVAILABLE";
 
 export interface VerifyChecks {
   signature: boolean;
@@ -197,11 +207,15 @@ export function verifyProof(token: string, expectedAudience: string, nowMs: numb
 
   checks.audience = p.aud === expectedAudience;
   checks.expiry = nowSec < p.exp;
-  checks.revocation = !isRevoked(p.jti, nowMs);
 
   const base = { checks, issuer: p.iss, subject: p.sub, claims: p.claims, expires_at: p.exp };
   if (!checks.audience) return { status: "AUDIENCE_MISMATCH", ...base };
   if (!checks.expiry) return { status: "EXPIRED", ...base };
+
+  // Fail-closed: if revocation cannot be confirmed, do NOT report VALID (invariant 2).
+  const rev = revocationStatus(p.jti, nowMs);
+  if (rev === "unknown") return { status: "REVOCATION_UNAVAILABLE", ...base };
+  checks.revocation = rev === "not-revoked";
   if (!checks.revocation) return { status: "REVOKED", ...base };
   return { status: "VALID", ...base };
 }

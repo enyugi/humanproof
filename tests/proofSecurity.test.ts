@@ -39,7 +39,7 @@ describe("Problem 1 — unforgeable + consent binding", () => {
 
   it("a quote fixes exactly the issuable audience+claims; tampering invalidates it", () => {
     const q = issueQuote("svc-A", ["over_18"])!;
-    expect(verifyQuote(q.token)).toEqual({ audience: "svc-A", claims: ["over_18"] });
+    expect(verifyQuote(q.token)).toMatchObject({ audience: "svc-A", claims: ["over_18"] });
     const body = JSON.parse(Buffer.from(q.token.split(".")[0], "base64url").toString("utf8"));
     body.claims = ["over_18", "human_verified", "unique_person"];
     const tampered = `${Buffer.from(JSON.stringify(body), "utf8").toString("base64url")}.${q.token.split(".")[1]}`;
@@ -71,6 +71,14 @@ describe("Problem 2 — explicit consent + server-owned TTL", () => {
     const proof = iss.json.proof as { audience: string; claims: string[] };
     expect(proof.audience).toBe("svc-A");
     expect(proof.claims).toEqual(["over_18"]);
+  });
+
+  it("a quote is single-use: reusing the same quote is rejected (invariant 8)", async () => {
+    const q = await call(quotePOST, { audience: "svc-A", claims: ["over_18"] });
+    const first = await call(issuePOST, { quote: q.json.quote, consent: true });
+    expect(first.status).toBe(200);
+    const second = await call(issuePOST, { quote: q.json.quote, consent: true });
+    expect(second.status).toBe(422); // already used
   });
 
   it("clamps an over-long requested TTL to the server maximum", () => {

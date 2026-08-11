@@ -20,16 +20,21 @@ requests, and recommends the minimum proof. This repository contains both the **
 - **Custom token format** — a compact `base64url(json).base64url(sig)` token, **not** JWT/JWS/VC or any standard.
 - **Demo Trusted Issuer is simulated** — it holds a real Ed25519 keypair but performs no real identity verification.
 - **Signing key is a per-install secret** — from `PROOF_ISSUER_SEED`, else a **random** seed generated on first run and
-  persisted to a gitignored local state file (`.humanproof/`). It is **never hardcoded in source**, so reading the repo
-  does not reveal it; it is stable across restarts. Not an HSM.
+  persisted to a gitignored local state file (`.humanproof/`, mode `0600`). It is **never hardcoded in source**, so reading
+  the repo does not reveal it; it is stable across restarts. An invalid `PROOF_ISSUER_SEED` is rejected (no silent fallback). Not an HSM.
 - **Quote ≠ consent** — the quote proves the *server confirmed a selection*; issuance additionally requires an *explicit
-  consent act*. A proof can never differ in audience/claims from the reviewed quote.
+  consent act*. A proof can never differ in audience/claims from the reviewed quote. **Quotes are single-use.**
 - **Server-owned TTL** — clients cannot set the lifetime; proofs are always short-lived (≤ policy), enforced at issue and verify.
 - **Strict, bounded verification** — even with a valid signature, verification rejects unknown issuers, wrong `typ`,
   allowlist-violating/empty/duplicate claims, over-long fields, oversized tokens, inverted/over-long lifetimes, and future `iat`.
 - **Revocation authority** — a secret **revocation code** returned only to the holder at issue; the proof token does not
-  contain it, so a Verifier merely shown the proof **cannot** revoke it. Revocation state is **persisted** and pruned by
-  expiry + capped, so a revoked in-TTL proof stays `REVOKED` across restart. Local single-process store — not a durable/replicated DB.
+  contain it, so a Verifier merely shown the proof **cannot** revoke it.
+- **Fail-closed persistence** — the state file (secret seed + revocation) uses atomic writes (temp + fsync + rename, `0600`)
+  and is validated on load (shape, size cap). If it cannot be read/written or is corrupt, the store is **unavailable** and
+  the system fails closed: issue and revoke return `503` (no false success), and verification returns
+  `REVOCATION_UNAVAILABLE` (never `VALID`) because revocation cannot be confirmed. Revocation is persisted, so a revoked
+  in-TTL proof stays `REVOKED` across a real restart. `PROOF_PERSIST=off` is an explicit ephemeral (in-memory) mode.
+  Local single-process store — not a durable/replicated DB.
 
 ## Run
 

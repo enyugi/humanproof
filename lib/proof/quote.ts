@@ -72,8 +72,11 @@ export function issueQuote(audience: string, requestedClaims: Claim[], nowMs = D
   return { token: encodeToken(payload), audience, claims, excluded, expires_at: payload.exp };
 }
 
-/** Verify a quote and return its fixed (audience, claims). Null if invalid/expired/malformed. */
-export function verifyQuote(token: string, nowMs = Date.now()): { audience: string; claims: Claim[] } | null {
+/** Verify a quote and return its fixed fields. Null if invalid/expired/malformed. */
+export function verifyQuote(
+  token: string,
+  nowMs = Date.now(),
+): { audience: string; claims: Claim[]; jti: string; exp: number } | null {
   const sig = verifyTokenSignature(token);
   if (!sig.issuerKnown || !sig.ok) return null;
   const parsed = QuoteSchema.safeParse(sig.body);
@@ -82,5 +85,5 @@ export function verifyQuote(token: string, nowMs = Date.now()): { audience: stri
   const nowSec = Math.floor(nowMs / 1000);
   if (p.iat > nowSec + CLOCK_SKEW_SECONDS) return null; // future-dated
   if (nowSec >= p.exp) return null; // expired
-  return { audience: p.aud, claims: p.claims };
+  return { audience: p.aud, claims: p.claims, jti: p.jti, exp: p.exp };
 }

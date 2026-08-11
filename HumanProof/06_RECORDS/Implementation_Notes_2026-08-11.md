@@ -2,7 +2,32 @@
 
 **Status:** 実装記録（証跡）。正本は上書きしない。優先順位は README/RECORDS の Authority に従う。
 **Scope:** AI HACK MVP のアプリ実装（リポジトリ直下 Next.js）。仕様 [`../04_DEVELOPMENT/Requirements.md`](../04_DEVELOPMENT/Requirements.md)、判断 [`../00_MASTER/DECISIONS.md`](../00_MASTER/DECISIONS.md) D-029。
-**Revision:** セキュリティレビュー2回目の確定設計を反映（初版の consent receipt / token 失効 / 固定公開 seed を差し替え）。
+**Revision:** セキュリティレビュー3回目でgreen確定。永続の信頼境界を **fail-closed** 化（保存失敗の握り潰し＝fail-open を修正）、quote を単回使用に確定、鍵の遅延初期化を追加。
+
+## 永続の信頼境界（3次レビューの中心）
+
+**根本原因**: 保存失敗を握り潰し（`save()` が例外を飲み、メモリ上のみ成功）→ `revokeByCode` が成功を返すのに、実プロセス再起動で失効が消え REVOKED→VALID に復活。空状態を「正常」として扱っていた。
+
+**採用（fail-closed）**:
+- 永続モードで状態が読書不能/破損/shape不正/サイズ超過なら store=**unavailable**（空正常として扱わない）。
+- 失効を確認できない (`unknown`) 場合、検証は VALID にせず **`REVOCATION_UNAVAILABLE`**（invariant 2）。
+- 失効権限(revAuth)を安全に保存できなければ**発行しない**（503, invariant 3）。
+- 失効を安全に保存できなければ**失効APIは成功を返さない**（503, invariant 4）。
+- 状態ファイルは atomic write（temp+fsync+rename・`0600`）+ dir `0700`、load時に shape/size 検証（機密性・途中破損・不正形式・容量上限, invariant 5）。
+- 不正な `PROOF_ISSUER_SEED` は起動時に拒否し**別鍵へ黙ってフォールバックしない**（invariant 6）。鍵は遅延初期化（import で store を触らず `next build` を壊さない）。
+- **quote は単回使用**（invariant 8）。同一 quote の再発行は 422。文書・テストと一致。
+
+**不採用**: 失効の DB/Redis 永続・マルチノード共有（MVPスコープ外）。fail-open のまま警告ログのみ（不変条件違反）。ephemeral 鍵（再起動で検証不能）。
+
+## 異常時の挙動（まとめ）
+
+| 状況 | 発行 | 失効 | 検証 |
+|---|---|---|---|
+| 正常(persist) | 署名Proof + revocation code | code で REVOKED | VALID/EXPIRED/REVOKED |
+| 保存先が書込不能 / 破損 / 容量超 | 503 | 503 | REVOCATION_UNAVAILABLE |
+| 不正 seed 設定 | 起動時 throw（黙ってフォールバックしない） | 同左 | 同左 |
+| `PROOF_PERSIST=off`（明示） | 成功(揮発) | 成功(揮発) | プロセス内で一貫 |
+
 
 ## 信頼境界（誰が何をできるか）
 
@@ -36,9 +61,10 @@
 
 ## 追加した攻撃・失敗テスト
 
-`tests/proofSecurity.test.ts`（16）: 旧公開 seed からの偽造→BAD_SIGNATURE、quote 改ざん/型取り違え、明示 consent 欠如→422（route）、quote と一致した発行、TTL clamp・過大 TTL 検証拒否、token 失効/任意 id 失効の拒否と code 失効の成立、未来 iat・重複 claim・空 claim・過大 audience・巨大 token・allowlist 外 claim の拒否、seed 決定論。
-`tests/proofPersistence.test.ts`（1）: 失効後の擬似再起動で REVOKED 維持。
-`tests/proof.test.ts`（9）: lifecycle G。全体 **59 green**。
+`tests/proofSecurity.test.ts`（17）: 旧公開 seed 偽造→BAD_SIGNATURE、quote 改ざん/型取り違え、明示 consent 欠如→422、quote 一致発行、**quote 単回使用（再利用→422）**、TTL clamp・過大 TTL 拒否、token/任意 id 失効拒否と code 失効成立、未来 iat・重複/空 claim・過大 audience・巨大 token・allowlist 外 claim 拒否、seed 決定論。
+`tests/proofStore.test.ts`（4, 動的 import で fresh init）: 不正 seed→throw、書込不能→503/503/REVOCATION_UNAVAILABLE、破損ファイル→同左、状態ファイル `0600`。
+`tests/proofPersistence.test.ts`（1）: **実モジュール再初期化**（vi.resetModules 再 import で鍵再導出＋ディスク再読込）で REVOKED 維持・seed 永続。
+`tests/proof.test.ts`（9）: lifecycle G。全体 **64 green**。加えて runtime で **実プロセス kill+restart** の HTTP 検証（REVOKED 維持・seed 永続・ファイル 0600）を実施。
 
 ## ローカル/デプロイで残る Demo 制約
 

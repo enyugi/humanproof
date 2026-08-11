@@ -1,120 +1,209 @@
-// Persistent state for the proof system: the issuer seed, the revocation set, and revocation
-// authority records. Backed by a local gitignored JSON file so that (a) the signing key is a
-// per-install random secret NOT present in source (Problem 1) and (b) revocation survives a
-// restart (Problem 4). This is a local single-process demo store, not a durable/replicated DB.
+// Persistent state for the proof system: issuer seed, revocation set, revocation authority, and
+// one-time quote consumption. Backed by a local gitignored JSON file.
+//
+// FAIL-CLOSED: in persist mode, if the state cannot be read/written, is corrupt, oversized, or has
+// an unexpected shape, the store is "unavailable" and callers must NOT proceed as if state were an
+// empty, trustworthy baseline. Writes are atomic (temp file + fsync + rename) with 0600 perms so a
+// crash mid-write cannot leave a half-written file that later reads as "empty".
+//
+// PROOF_PERSIST=off selects an explicit ephemeral in-memory mode (tests) — that is a deliberate
+// non-persistent choice, distinct from a persist-mode failure.
 
 import fs from "node:fs";
 import { randomBytes } from "node:crypto";
+import { z } from "zod";
 
 const PERSIST = (process.env.PROOF_PERSIST ?? "on") !== "off";
 const DIR = process.env.PROOF_STATE_DIR?.trim() || ".humanproof";
 const FILE = `${DIR}/state.json`;
+const MAX_FILE_BYTES = 1_000_000;
 const MAX_ENTRIES = 10_000;
 
-interface State {
-  seedHex: string;
-  revoked: Record<string, number>; // jti -> exp (unix seconds)
-  revAuth: Record<string, { jti: string; exp: number }>; // sha256(revocationCode) -> jti/exp
-}
-
-let cache: State | null = null;
-let persistentOk = PERSIST;
+const StateSchema = z
+  .object({
+    v: z.literal(1),
+    seedHex: z.union([z.string().regex(/^[0-9a-f]{64}$/i), z.literal("")]),
+    revoked: z.record(z.string(), z.number()),
+    revAuth: z.record(z.string(), z.object({ jti: z.string(), exp: z.number() }).strict()),
+    usedQuotes: z.record(z.string(), z.number()),
+  })
+  .strict();
+type State = z.infer<typeof StateSchema>;
 
 function fresh(): State {
-  return { seedHex: "", revoked: {}, revAuth: {} };
+  return { v: 1, seedHex: "", revoked: {}, revAuth: {}, usedQuotes: {} };
 }
 
-function load(): State {
-  if (cache) return cache;
-  if (PERSIST) {
-    try {
-      if (fs.existsSync(FILE)) cache = JSON.parse(fs.readFileSync(FILE, "utf8")) as State;
-    } catch {
-      /* corrupt/unreadable -> start fresh */
-    }
-  }
-  if (!cache) cache = fresh();
-  cache.revoked ??= {};
-  cache.revAuth ??= {};
-  cache.seedHex ??= "";
-  return cache;
-}
+let mem: State = fresh();
+let health: "ok" | "unavailable" = "ok";
+let loaded = false;
 
-function save(): void {
-  if (!PERSIST) return;
+export class InvalidSeedError extends Error {}
+export class StateUnavailableError extends Error {}
+
+function atomicWrite(): boolean {
   try {
-    fs.mkdirSync(DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(load()));
-    persistentOk = true;
+    fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
+    const tmp = `${FILE}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+    const fd = fs.openSync(tmp, "w", 0o600);
+    try {
+      fs.writeFileSync(fd, JSON.stringify(mem));
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, FILE); // atomic replace
+    try {
+      fs.chmodSync(FILE, 0o600);
+    } catch {
+      /* best-effort perms */
+    }
+    return true;
   } catch {
-    persistentOk = false;
+    return false;
   }
 }
 
+function ensureLoaded(): void {
+  if (loaded) return;
+  loaded = true;
+  if (!PERSIST) {
+    health = "ok";
+    return;
+  }
+  try {
+    if (fs.existsSync(FILE)) {
+      const st = fs.statSync(FILE);
+      if (st.size > MAX_FILE_BYTES) {
+        health = "unavailable"; // refuse to parse an oversized/untrusted file
+        return;
+      }
+      const parsed = StateSchema.safeParse(JSON.parse(fs.readFileSync(FILE, "utf8")));
+      if (!parsed.success) {
+        health = "unavailable"; // corrupt / wrong shape -> NOT treated as empty-normal
+        return;
+      }
+      mem = parsed.data;
+      health = "ok";
+    } else {
+      // fresh install: we must be able to create the file to be trustworthy
+      health = atomicWrite() ? "ok" : "unavailable";
+    }
+  } catch {
+    health = "unavailable";
+  }
+}
+
+export function storeHealthy(): boolean {
+  ensureLoaded();
+  return health === "ok";
+}
 export function isPersistent(): boolean {
-  return PERSIST && persistentOk;
+  return PERSIST;
+}
+
+function commit(): boolean {
+  if (!PERSIST) return true; // ephemeral success
+  if (health !== "ok") return false; // fail-closed
+  if (atomicWrite()) return true;
+  health = "unavailable";
+  return false;
+}
+
+function prune(nowSec: number): void {
+  for (const [k, e] of Object.entries(mem.revoked)) if (e <= nowSec) delete mem.revoked[k];
+  for (const [k, v] of Object.entries(mem.revAuth)) if (v.exp <= nowSec) delete mem.revAuth[k];
+  for (const [k, e] of Object.entries(mem.usedQuotes)) if (e <= nowSec) delete mem.usedQuotes[k];
 }
 
 // --- issuer seed ---------------------------------------------------------
-export function getOrCreateSeedHex(): { hex: string; source: "env" | "persisted" | "ephemeral" } {
-  const env = process.env.PROOF_ISSUER_SEED?.trim();
-  if (env && /^[0-9a-fA-F]{64}$/.test(env)) return { hex: env, source: "env" };
-  const s = load();
-  if (s.seedHex && /^[0-9a-fA-F]{64}$/.test(s.seedHex)) return { hex: s.seedHex, source: "persisted" };
-  const hex = randomBytes(32).toString("hex"); // per-install random secret, never from source
-  s.seedHex = hex;
-  save();
-  return { hex, source: isPersistent() ? "persisted" : "ephemeral" };
-}
-
-// --- pruning -------------------------------------------------------------
-function prune(nowSec: number): void {
-  const s = load();
-  let changed = false;
-  for (const [k, exp] of Object.entries(s.revoked)) if (exp <= nowSec) (delete s.revoked[k], (changed = true));
-  for (const [k, v] of Object.entries(s.revAuth)) if (v.exp <= nowSec) (delete s.revAuth[k], (changed = true));
-  if (changed) save();
+export function getSeed(): { hex: string; source: "env" | "persisted" | "ephemeral" } {
+  const env = process.env.PROOF_ISSUER_SEED;
+  if (env !== undefined && env.trim() !== "") {
+    if (/^[0-9a-fA-F]{64}$/.test(env.trim())) return { hex: env.trim().toLowerCase(), source: "env" };
+    throw new InvalidSeedError("PROOF_ISSUER_SEED must be exactly 64 hex characters"); // no silent fallback
+  }
+  if (!PERSIST) return { hex: randomBytes(32).toString("hex"), source: "ephemeral" };
+  ensureLoaded();
+  if (health !== "ok") {
+    throw new StateUnavailableError("Proof state store is unavailable; refusing to run without persistable keys");
+  }
+  if (mem.seedHex && /^[0-9a-f]{64}$/.test(mem.seedHex)) return { hex: mem.seedHex, source: "persisted" };
+  mem.seedHex = randomBytes(32).toString("hex");
+  if (!commit()) throw new StateUnavailableError("Failed to persist a newly generated issuer seed");
+  return { hex: mem.seedHex, source: "persisted" };
 }
 
 // --- revocation set ------------------------------------------------------
 export function addRevoked(jti: string, exp: number, nowMs = Date.now()): boolean {
+  if (PERSIST) {
+    ensureLoaded();
+    if (health !== "ok") return false;
+  }
   const nowSec = Math.floor(nowMs / 1000);
   prune(nowSec);
-  if (exp <= nowSec) return true; // already expired -> no need to store
-  const s = load();
-  if (!(jti in s.revoked) && Object.keys(s.revoked).length >= MAX_ENTRIES) return false;
-  s.revoked[jti] = exp;
-  save();
-  return true;
+  if (exp <= nowSec) return true;
+  if (!(jti in mem.revoked) && Object.keys(mem.revoked).length >= MAX_ENTRIES) return false;
+  mem.revoked[jti] = exp;
+  return commit();
 }
 
-export function isRevoked(jti: string, nowMs = Date.now()): boolean {
+export type RevocationStatus = "revoked" | "not-revoked" | "unknown";
+export function revocationStatus(jti: string, nowMs = Date.now()): RevocationStatus {
+  if (PERSIST) {
+    ensureLoaded();
+    if (health !== "ok") return "unknown"; // cannot confirm -> caller must fail closed
+  }
   prune(Math.floor(nowMs / 1000));
-  return jti in load().revoked;
+  return jti in mem.revoked ? "revoked" : "not-revoked";
 }
 
-// --- revocation authority (only the holder of the code can revoke) -------
+// --- revocation authority (codeHash -> jti/exp) --------------------------
 export function putRevAuth(codeHash: string, jti: string, exp: number, nowMs = Date.now()): boolean {
+  if (PERSIST) {
+    ensureLoaded();
+    if (health !== "ok") return false;
+  }
   prune(Math.floor(nowMs / 1000));
-  const s = load();
-  if (!(codeHash in s.revAuth) && Object.keys(s.revAuth).length >= MAX_ENTRIES) return false;
-  s.revAuth[codeHash] = { jti, exp };
-  save();
-  return true;
+  if (!(codeHash in mem.revAuth) && Object.keys(mem.revAuth).length >= MAX_ENTRIES) return false;
+  mem.revAuth[codeHash] = { jti, exp };
+  return commit();
 }
 
 export function lookupRevAuth(codeHash: string, nowMs = Date.now()): { jti: string; exp: number } | null {
+  if (PERSIST) {
+    ensureLoaded();
+    if (health !== "ok") return null;
+  }
   prune(Math.floor(nowMs / 1000));
-  return load().revAuth[codeHash] ?? null;
+  return mem.revAuth[codeHash] ?? null;
+}
+
+// --- one-time quote consumption -----------------------------------------
+export type QuoteConsumeResult = "consumed" | "already-used" | "unavailable";
+export function consumeQuote(jti: string, exp: number, nowMs = Date.now()): QuoteConsumeResult {
+  if (PERSIST) {
+    ensureLoaded();
+    if (health !== "ok") return "unavailable";
+  }
+  prune(Math.floor(nowMs / 1000));
+  if (jti in mem.usedQuotes) return "already-used";
+  if (Object.keys(mem.usedQuotes).length >= MAX_ENTRIES) return "unavailable";
+  mem.usedQuotes[jti] = exp;
+  return commit() ? "consumed" : "unavailable";
 }
 
 // --- test helpers --------------------------------------------------------
 export function reloadFromDisk(): void {
-  cache = null;
-  load();
+  loaded = false;
+  mem = fresh();
+  health = "ok";
+  ensureLoaded();
 }
 export function _reset(): void {
-  cache = fresh();
+  mem = fresh();
+  health = "ok";
+  loaded = !PERSIST ? true : false;
   if (PERSIST) {
     try {
       fs.rmSync(FILE, { force: true });
@@ -122,7 +211,4 @@ export function _reset(): void {
       /* ignore */
     }
   }
-}
-export function _revokedSize(): number {
-  return Object.keys(load().revoked).length;
 }

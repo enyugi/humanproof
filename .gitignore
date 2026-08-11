@@ -19,6 +19,7 @@ next-env.d.ts
 # proof system local state (per-install issuer seed + revocation)
 /.humanproof
 /.humanproof-test
+/.humanproof-e2e
 
 # misc
 *.tsbuildinfo

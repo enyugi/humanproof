@@ -225,11 +225,15 @@ export default function Page() {
     if (!revocationCode) return;
     setProofError(null);
     try {
-      await fetch("/api/proof/revoke", {
+      const res = await fetch("/api/proof/revoke", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ revocationCode }), // holder's secret code, NOT the proof token
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Revoke failed (HTTP ${res.status})`);
+      }
       await verifyProofNow(); // re-verify -> should now show REVOKED
     } catch (e) {
       setProofError(e instanceof Error ? e.message : "Revoke failed");

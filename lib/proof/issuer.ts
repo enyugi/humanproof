@@ -2,16 +2,17 @@
 // verification (FR-13, D-007). A Verifier trusts an Issuer by knowing its id + public key.
 // HumanProof itself is not the root of trust (HumanProof_MASTER §6).
 //
-// The signing seed is a per-install SECRET: it comes from PROOF_ISSUER_SEED, else a random seed
-// persisted to the local gitignored state file. It is NEVER hardcoded in source, so reading the
-// repository does not reveal the key (Problem 1). It is stable across restarts (Problem 4/5).
+// The signing seed is a per-install SECRET: from PROOF_ISSUER_SEED, else a random seed persisted to
+// the local gitignored state file. NEVER hardcoded in source (Problem 1), stable across restarts
+// (Problem 4/5). Initialization is LAZY (on first use) so importing a route does not require a
+// working key store — `next build` route collection must not fail, and failures surface at request
+// time as fail-closed responses rather than crashing at import.
 
 import { createPrivateKey, createPublicKey, createHmac, type KeyObject } from "node:crypto";
-import { getOrCreateSeedHex } from "./store";
+import { getSeed } from "./store";
 
 export const DEMO_ISSUER_ID = "did:humanproof:demo-issuer";
 
-// PKCS8 DER prefix for an Ed25519 private key; the 32-byte seed is appended to form the full DER.
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 
 /** Derive a stable Ed25519 keypair from a 32-byte seed (exported for determinism tests). */
@@ -23,27 +24,37 @@ export function deriveKeypairFromSeed(seed: Buffer): { privateKey: KeyObject; pu
   return { privateKey, publicKey };
 }
 
-const { hex: seedHex, source } = getOrCreateSeedHex();
+interface Material {
+  privateKey: KeyObject;
+  publicKey: KeyObject;
+  pairwiseSecret: Buffer | string;
+  source: "env" | "persisted" | "ephemeral";
+}
+let material: Material | null = null;
 
-/** Where the signing key came from: env-provided, persisted per-install secret, or ephemeral. */
-export const KEY_SOURCE: "env" | "persisted" | "ephemeral" = source;
-
-const { privateKey, publicKey } = deriveKeypairFromSeed(Buffer.from(seedHex, "hex"));
-
-// Pairwise secret: from env, else derived from the (secret) issuer seed — so it is also secret and
-// stable, without a second stored value.
-const pairwiseSecret =
-  process.env.PROOF_PAIRWISE_SECRET?.trim() ||
-  createHmac("sha256", Buffer.from(seedHex, "hex")).update("pairwise-subject").digest();
-
-export function getIssuerPrivateKey(): KeyObject {
-  return privateKey;
+// Lazily initialize keys. May throw (invalid seed, or unavailable store with no env seed) — by
+// design, callers that need signing/verification then fail rather than proceeding insecurely.
+function init(): Material {
+  if (material) return material;
+  const { hex, source } = getSeed();
+  const { privateKey, publicKey } = deriveKeypairFromSeed(Buffer.from(hex, "hex"));
+  const pairwiseSecret =
+    process.env.PROOF_PAIRWISE_SECRET?.trim() || createHmac("sha256", Buffer.from(hex, "hex")).update("pairwise-subject").digest();
+  material = { privateKey, publicKey, pairwiseSecret, source };
+  return material;
 }
 
-const REGISTRY: Record<string, KeyObject> = { [DEMO_ISSUER_ID]: publicKey };
+export function keySource(): "env" | "persisted" | "ephemeral" {
+  return init().source;
+}
+
+export function getIssuerPrivateKey(): KeyObject {
+  return init().privateKey;
+}
 
 export function getIssuerPublicKey(issuerId: string): KeyObject | null {
-  return REGISTRY[issuerId] ?? null;
+  if (issuerId !== DEMO_ISSUER_ID) return null;
+  return init().publicKey;
 }
 
 /**
@@ -51,5 +62,5 @@ export function getIssuerPublicKey(issuerId: string): KeyObject | null {
  * and stable across restarts (FR-09, D-009).
  */
 export function pairwiseSubject(userId: string, audience: string): string {
-  return createHmac("sha256", pairwiseSecret).update(`${userId}|${audience}`).digest("base64url");
+  return createHmac("sha256", init().pairwiseSecret).update(`${userId}|${audience}`).digest("base64url");
 }

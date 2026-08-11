@@ -28,7 +28,7 @@ describe("G. Proof lifecycle", () => {
   it("revoked: revoke via code -> REVOKED on re-verify", () => {
     const { token, revocationCode } = issue();
     expect(verifyProof(token, AUD).status).toBe("VALID");
-    expect(revokeByCode(revocationCode)).toBe(true);
+    expect(revokeByCode(revocationCode)).toBe("revoked");
     expect(verifyProof(token, AUD).status).toBe("REVOKED");
   });
 
