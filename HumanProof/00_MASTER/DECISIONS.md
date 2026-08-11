@@ -34,6 +34,10 @@
 | D-027 | 採用 | LLMへ送るrequested dataは種別名のみとし、実値はblock/maskする | 統合判断 | サービス説明へ実PIIが混入する経路も閉じる |
 | D-028 | 採用 | requested dataを正規カテゴリへ正規化し、同一項目は単一 emit・distinct 件数で数える | 品質監査 | `id_photo`/`face_image`/`raw_identity_document` の二重計上を防ぎ「4 pieces → 2 proofs」の件数を決定論化する (MASTER §4 / Delta §4) |
 
+## 読み方
+
+この台帳は **ID 昇順の追記専用（append-only）** で並ぶ。Status（採用 / 保留 / 却下 / 未検証）でまとまってはいないため、新しい行（例: D-027, D-028）は Status で見ると末尾に現れる。Status 別のまとまった俯瞰は [`HumanProof_MASTER.md`](HumanProof_MASTER.md) §11 を参照する（両者は同期させる）。
+
 ## 変更方法
 
-新しい調査や実装結果が出たら、Evidence欄を追記して `未検証 → 採用/却下`、`保留 → 採用/却下` のように更新する。結論だけでなく、誰のどの事実で変わったかを記録する。
+新しい調査や実装結果が出たら、Evidence欄を追記して `未検証 → 採用/却下`、`保留 → 採用/却下` のように更新する。結論だけでなく、誰のどの事実で変わったかを記録する。行は消さず ID 昇順で追記する。
