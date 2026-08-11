@@ -64,8 +64,10 @@ export class OrcaRouterProvider implements OrcaProvider {
       raw = {};
     }
 
-    // Resolved model: prefer the gateway's explicit header, then the body, else null.
-    const resolvedModel = res.headers.get("X-Orca-Resolved-Model") ?? body.model ?? null;
+    // Resolved model: the official X-Orca-Resolved-Model header ONLY. Never substitute body.model,
+    // which is exposed separately as response_model.
+    const resolvedModel = res.headers.get("X-Orca-Resolved-Model") ?? null;
+    const responseModel = body.model ?? null;
     // Only report cost/request-id if the gateway actually returned them (never fabricate — D-011).
     const cost = body.usage?.total_cost ?? body.usage?.cost ?? null;
     const requestId = body.id ?? null;
@@ -75,6 +77,7 @@ export class OrcaRouterProvider implements OrcaProvider {
       meta: {
         source: "ORCAROUTER",
         model: resolvedModel,
+        response_model: responseModel,
         latency_ms,
         request_id: requestId,
         cost_usd: typeof cost === "number" ? cost : null,

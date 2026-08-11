@@ -5,8 +5,11 @@ export type OrcaSource = "MOCK" | "ORCAROUTER";
 
 export interface OrcaMeta {
   source: OrcaSource;
-  // Resolved model as reported by the gateway. null (not "unknown") when not provided (D-011).
+  // Resolved model as reported by the gateway's official X-Orca-Resolved-Model header ONLY.
+  // null (not "unknown", and never substituted from the response body) when the header is absent.
   model: string | null;
+  // Model echoed in the response body (may differ from the resolved model). null if not present.
+  response_model: string | null;
   latency_ms: number;
   // Gateway request id. null when not provided — never a fabricated placeholder.
   request_id: string | null;

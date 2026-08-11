@@ -40,7 +40,7 @@ npm run build       # next build
 
 ## What is enforced (see Requirements.md)
 
-- **Zero PII to LLM** — real values are masked before egress; only category names are sent (FR-02, NFR-01/02).
+- **Zero PII to LLM** — if real values are detected in the purpose text the request is **blocked** (not sent) so the user can remove them; only the PII-shield-passed service-purpose text and canonical category names are sent (FR-02, NFR-01/02). The heuristic shield detects, it does not guarantee absence.
 - **Deterministic counting** — requested data is normalized + de-duplicated; `N pieces` is the distinct count (FR-04, D-028).
 - **Server-side policy** — claims restricted to the fixed allowlist, required/optional disjoint, flags limited to detected items, prohibited determinations neutralized (FR-05/07/14).
 - **Actual-only audit** — no fabricated model/cost/logs; MOCK is labelled as MOCK (FR-12, NFR-07).

@@ -5,7 +5,7 @@
 
 import { SUPPORTED_CLAIMS } from "./claims";
 import { scanForPii, type PiiFindingType } from "./piiShield";
-import { normalizeRequestedData } from "./normalize";
+import { normalizeRequestedData, canonicalCategory } from "./normalize";
 import { SYSTEM_PROMPT } from "./prompt";
 import { parseAnalysis } from "./schema";
 import { enforcePolicy, type EnforcedAnalysis } from "./policy";
@@ -23,16 +23,19 @@ export interface ZeroPiiEvidence {
   policy: "block-on-detected-pii";
   input_pii_findings: number; // PII types the shield saw in the input (0 when analysis proceeds)
   egress_payload_scanned: boolean;
-  // measured against the ACTUAL egress payload, not asserted as a fixed constant:
-  personal_identity_attributes_sent_to_ai: number;
-  raw_identity_documents_sent_to_ai: number;
-  requested_data_dropped: number; // requestedData entries dropped as non-allowlist / non-category
+  // Heuristic scan of the ACTUAL egress payload. This is a detection count, NOT an absolute
+  // proof of absence — absence of a finding only means no known pattern matched.
+  detected_personal_identity_attribute_values_in_egress: number;
+  raw_identity_documents_sent_to_ai: number; // 0 by construction: no document/image channel exists
+  requested_data_invalid_dropped: number; // entries that were not a recognized category
+  requested_data_deduplicated: number; // duplicate canonical categories collapsed
   basis: string;
 }
 
 export interface AuditInfo {
   source: OrcaMeta["source"];
-  model: string | null;
+  model: string | null; // resolved model (X-Orca-Resolved-Model header only)
+  response_model: string | null; // model echoed in the response body
   latency_ms: number;
   request_id: string | null;
   cost_usd: number | null;
@@ -68,9 +71,13 @@ export async function runAnalysis(input: AnalyzeInput, provider: OrcaProvider = 
 
   // 2. requestedData egress boundary: normalize to canonical categories and drop everything
   //    that is not an allowlisted category (arbitrary strings / real PII values never leave).
+  //    Count invalid entries and duplicates separately (they are different accuracy stories).
   const rawRequested = Array.isArray(input.requestedData) ? input.requestedData : [];
+  const mapped = rawRequested.map((r) => canonicalCategory(r));
+  const requested_data_invalid_dropped = mapped.filter((c) => c === null).length;
+  const validCanon = mapped.filter((c): c is NonNullable<typeof c> => c !== null);
+  const requested_data_deduplicated = validCanon.length - new Set(validCanon).size;
   const requestedDataCategories = normalizeRequestedData(rawRequested);
-  const requested_data_dropped = rawRequested.length - requestedDataCategories.length;
 
   const orcaInput: OrcaInput = {
     system: SYSTEM_PROMPT,
@@ -102,18 +109,20 @@ export async function runAnalysis(input: AnalyzeInput, provider: OrcaProvider = 
     policy: "block-on-detected-pii",
     input_pii_findings: shield.findings.length,
     egress_payload_scanned: true,
-    personal_identity_attributes_sent_to_ai: egressScan.findings.length,
+    detected_personal_identity_attribute_values_in_egress: egressScan.findings.length,
     raw_identity_documents_sent_to_ai: 0, // orcaInput has no document/image field: text + category names only
-    requested_data_dropped,
+    requested_data_invalid_dropped,
+    requested_data_deduplicated,
     basis:
-      "Input passed the PII shield with zero findings (requests with detected PII are blocked before egress). " +
-      "The egress payload (service text + allowlisted category names) was re-scanned; the count above is measured, not assumed. " +
-      "No document or image channel exists, so raw identity documents sent = 0 by construction.",
+      "Requests with detected PII are blocked before egress, so analysis only proceeds on input the heuristic shield found clean. " +
+      "The egress payload (service-purpose text + canonical category names) was re-scanned; the count above is a heuristic detection result, " +
+      "not an absolute proof of absence. No document or image channel exists, so raw identity documents sent = 0 by construction.",
   };
 
   const audit: AuditInfo = {
     source: meta.source,
     model: meta.model,
+    response_model: meta.response_model,
     latency_ms: meta.latency_ms,
     request_id: meta.request_id,
     cost_usd: meta.cost_usd,

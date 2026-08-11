@@ -26,6 +26,7 @@ interface AnalyzeResponse {
   audit: {
     source: Source;
     model: string | null;
+    response_model: string | null;
     latency_ms: number;
     request_id: string | null;
     cost_usd: number | null;
@@ -34,9 +35,10 @@ interface AnalyzeResponse {
       policy: string;
       input_pii_findings: number;
       egress_payload_scanned: boolean;
-      personal_identity_attributes_sent_to_ai: number;
+      detected_personal_identity_attribute_values_in_egress: number;
       raw_identity_documents_sent_to_ai: number;
-      requested_data_dropped: number;
+      requested_data_invalid_dropped: number;
+      requested_data_deduplicated: number;
       basis: string;
     };
   };
@@ -274,8 +276,12 @@ export default function Page() {
                   <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>{result.audit.source}</span>
                 </div>
                 <div className="row">
-                  <span>Resolved model</span>
+                  <span>Resolved model (X-Orca-Resolved-Model)</span>
                   <span><OrNotProvided value={result.audit.model} /></span>
+                </div>
+                <div className="row">
+                  <span>Response model (body)</span>
+                  <span><OrNotProvided value={result.audit.response_model} /></span>
                 </div>
                 <div className="row">
                   <span>Latency</span>
@@ -290,16 +296,20 @@ export default function Page() {
                   <span>{result.audit.cost_usd !== null ? <code>${result.audit.cost_usd}</code> : <span className="note">See OrcaRouter request log</span>}</span>
                 </div>
                 <div className="row">
-                  <span>Personal identity attributes sent to AI</span>
-                  <span className="pill real">{result.audit.zero_pii.personal_identity_attributes_sent_to_ai}</span>
+                  <span>Detected personal identity attribute values in egress (heuristic)</span>
+                  <span className="pill real">{result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span>
                 </div>
                 <div className="row">
                   <span>Raw identity documents sent to AI</span>
                   <span className="pill real">{result.audit.zero_pii.raw_identity_documents_sent_to_ai}</span>
                 </div>
                 <div className="row">
-                  <span>Non-category inputs dropped before egress</span>
-                  <span><code>{result.audit.zero_pii.requested_data_dropped}</code></span>
+                  <span>Invalid (non-category) inputs dropped before egress</span>
+                  <span><code>{result.audit.zero_pii.requested_data_invalid_dropped}</code></span>
+                </div>
+                <div className="row">
+                  <span>Duplicate categories collapsed before egress</span>
+                  <span><code>{result.audit.zero_pii.requested_data_deduplicated}</code></span>
                 </div>
                 <p className="note">{result.audit.zero_pii.basis}</p>
                 {result.audit.note && <p className="note">{result.audit.note}</p>}

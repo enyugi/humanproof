@@ -36,11 +36,23 @@ describe("Item 1. OrcaRouter contract", () => {
     expect(sentBody.model).toBe(ORCAROUTER_DEFAULT_MODEL);
     expect(ORCAROUTER_DEFAULT_MODEL).toBe("orcarouter/auto");
 
-    // resolved model comes from the X-Orca-Resolved-Model header, source labelled ORCAROUTER
+    // resolved model comes ONLY from the header; body.model is exposed separately as response_model
     expect(result.meta.source).toBe("ORCAROUTER");
     expect(result.meta.model).toBe("orcarouter/auto:resolved-model-x");
+    expect(result.meta.response_model).toBe("orcarouter/auto");
     expect(result.meta.request_id).toBe("orca-req-123");
     expect(result.meta.cost_usd).toBe(0.0004);
+  });
+
+  it("resolved model is null when the header is absent, even if body.model is present", async () => {
+    const fakeFetch = async () =>
+      jsonResponse({ id: "orca-req-9", model: "orcarouter/auto", choices: [{ message: { content: "{}" } }] });
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
+    const result = await provider.analyze(input);
+
+    expect(result.meta.model).toBeNull(); // NOT substituted from body.model
+    expect(result.meta.response_model).toBe("orcarouter/auto");
+    expect(result.meta.request_id).toBe("orca-req-9");
   });
 
   it("reports null (not 'unknown') when model / request id / cost are not provided", async () => {
@@ -49,6 +61,7 @@ describe("Item 1. OrcaRouter contract", () => {
     const result = await provider.analyze(input);
 
     expect(result.meta.model).toBeNull();
+    expect(result.meta.response_model).toBeNull();
     expect(result.meta.request_id).toBeNull();
     expect(result.meta.cost_usd).toBeNull();
     expect(result.meta.note).toMatch(/See OrcaRouter request log/);

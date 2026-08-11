@@ -70,6 +70,10 @@ const DETECTORS: Detector[] = [
   },
   // Japanese personal name with honorific: 山田さん / 田中様
   { type: "person_name", re: /[一-鿿]{1,4}(?:さん|様|氏|くん|ちゃん)/ },
+  // Labeled Japanese name: 氏名：山田太郎 / 名前: たろう
+  { type: "person_name", re: /(?:氏名|名前|お名前)\s*[:：]\s*[一-鿿ぁ-ゟ゠-ヿ]{2,8}/ },
+  // Common Japanese surnames (dictionary), catches unlabeled full names like 山田太郎
+  { type: "person_name", re: /(?:山田|田中|鈴木|佐藤|高橋|渡辺|伊藤|中村|小林|加藤|吉田|山本)/ },
 ];
 
 /** Scan free text for real PII values. Does not mask; reports which types were found. */

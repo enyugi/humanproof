@@ -114,7 +114,19 @@ describe("Item 2. requestedData egress boundary", () => {
     for (const bad of ["Jane Doe", "1990-05-01", "<script>", "not_a_category"]) {
       expect(egress).not.toContain(bad);
     }
-    expect(r.audit.zero_pii.requested_data_dropped).toBe(4);
+    expect(r.audit.zero_pii.requested_data_invalid_dropped).toBe(4);
+    expect(r.audit.zero_pii.requested_data_deduplicated).toBe(0);
+  });
+
+  it("counts duplicates separately from invalid entries", async () => {
+    const cap = new CapturingProvider(mock());
+    const r = await runAnalysis(
+      { purposeText: "We allow real humans aged 18+ only.", requestedData: ["full_name", "full_name", "id photo", "ID photo"] },
+      cap,
+    );
+    expect(cap.last!.requestedDataCategories).toEqual(["full_name", "id_photo"]);
+    expect(r.audit.zero_pii.requested_data_invalid_dropped).toBe(0);
+    expect(r.audit.zero_pii.requested_data_deduplicated).toBe(2);
   });
 });
 
@@ -154,7 +166,7 @@ describe("Audit labelling (MOCK)", () => {
     expect(r.audit.source).toBe("MOCK");
     expect(r.audit.cost_usd).toBeNull();
     expect(r.audit.note).toMatch(/MOCK/);
-    expect(r.audit.zero_pii.personal_identity_attributes_sent_to_ai).toBe(0);
+    expect(r.audit.zero_pii.detected_personal_identity_attribute_values_in_egress).toBe(0);
     expect(r.audit.zero_pii.raw_identity_documents_sent_to_ai).toBe(0);
     expect(r.audit.zero_pii.egress_payload_scanned).toBe(true);
   });

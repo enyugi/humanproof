@@ -30,6 +30,12 @@ describe("piiShield.scanForPii (FR-02 / NFR-01 / NFR-02)", () => {
   it("detects a given name", () => {
     expect(scanForPii("Please verify Jane before entry.").clean).toBe(false);
   });
+  it("detects a labeled Japanese full name (氏名：山田太郎)", () => {
+    expect(scanForPii("氏名：山田太郎 を確認します。").clean).toBe(false);
+  });
+  it("detects a dictionary-less English name by context", () => {
+    expect(scanForPii("The applicant Kingsley must be verified before entry.").clean).toBe(false);
+  });
   it("detects a Japanese address", () => {
     expect(scanForPii("住所は東京都渋谷区神南1-2-3です。").clean).toBe(false);
   });

@@ -93,7 +93,8 @@ export class MockProvider implements OrcaProvider {
       raw,
       meta: {
         source: "MOCK",
-        model: "mock/rule-based-analyzer",
+        model: "mock/rule-based-analyzer", // the mock's model is definitively known (not gateway-resolved)
+        response_model: null,
         latency_ms,
         request_id: idFor(input.sanitizedServiceText + "|" + input.requestedDataCategories.join(",")),
         cost_usd: null,
