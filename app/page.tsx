@@ -83,6 +83,7 @@ export default function Page() {
   const [selected, setSelected] = useState<Set<RequestedDataCategory>>(new Set(DEMO_SELECTED));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [analysisTimeout, setAnalysisTimeout] = useState(false);
   const [blockedTypes, setBlockedTypes] = useState<string[] | null>(null);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
 
@@ -127,6 +128,7 @@ export default function Page() {
     setLoading(true);
     setError(null);
     setBlockedTypes(null);
+    setAnalysisTimeout(false);
     setResult(null);
     try {
       const res = await fetch("/api/analyze", {
@@ -137,6 +139,12 @@ export default function Page() {
       const data = await res.json();
       if (res.status === 422 && data.blocked) {
         setBlockedTypes(data.pii_finding_types ?? []);
+        return;
+      }
+      if (data.timeout) {
+        // upstream connection delay — distinct from an input error; user can simply retry
+        setAnalysisTimeout(true);
+        setError(data.error ?? "Temporary connection delay. Please wait a moment and try again.");
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Analysis failed");
@@ -346,7 +354,7 @@ export default function Page() {
           {error && (
             <div className="error">
               {error}
-              <div className="note">Next: check the purpose text and try Analyze again.</div>
+              <div className="note">{analysisTimeout ? "Next: wait a few seconds, then click Analyze again." : "Next: check the purpose text and try Analyze again."}</div>
             </div>
           )}
           {blockedTypes && (

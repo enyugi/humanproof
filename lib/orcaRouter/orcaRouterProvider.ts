@@ -2,7 +2,7 @@
 // never reaches the client. Not exercised until ORCAROUTER_API_KEY is set.
 // Source: Requirements FR-12/NFR-03/NFR-07.
 
-import type { OrcaInput, OrcaProvider, OrcaResult } from "./types";
+import { OrcaUpstreamError, type OrcaInput, type OrcaProvider, type OrcaResult } from "./types";
 
 export const ORCAROUTER_BASE_URL = "https://api.orcarouter.ai/v1";
 export const ORCAROUTER_DEFAULT_MODEL = "orcarouter/auto";
@@ -42,11 +42,13 @@ export class OrcaRouterProvider implements OrcaProvider {
         response_format: { type: "json_object" },
         temperature: 0,
       }),
+      signal: input.signal, // per-call timeout / overall deadline / client disconnect
     });
     const latency_ms = Math.max(1, Date.now() - start);
 
     if (!res.ok) {
-      throw new Error(`OrcaRouter HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+      // Dedicated, secret-free upstream error (status only — no body/prompt/Authorization).
+      throw new OrcaUpstreamError(res.status);
     }
 
     const body = (await res.json()) as {
