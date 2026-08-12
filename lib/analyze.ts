@@ -30,9 +30,12 @@ function clampInt(v: string | undefined, def: number, lo: number, hi: number): n
 }
 
 // Server-owned timeouts. Env overrides are optional and clamped to safe bounds.
-export const PER_CALL_TIMEOUT_MS = clampInt(process.env.ORCAROUTER_TIMEOUT_MS, 12_000, 1_000, 30_000);
+// Defaults give margin over the measured real-model latency (pinned openai/gpt-4o-mini via
+// OrcaRouter: median ~7s, occasional tail past 12s). per-call 20s absorbs most of the spread;
+// overall 32s leaves room for the single schema retry. Extreme tail still yields a retriable 504.
+export const PER_CALL_TIMEOUT_MS = clampInt(process.env.ORCAROUTER_TIMEOUT_MS, 20_000, 1_000, 30_000);
 export const OVERALL_DEADLINE_MS = Math.max(
-  clampInt(process.env.ORCAROUTER_DEADLINE_MS, 20_000, 2_000, 60_000),
+  clampInt(process.env.ORCAROUTER_DEADLINE_MS, 32_000, 2_000, 60_000),
   PER_CALL_TIMEOUT_MS,
 );
 

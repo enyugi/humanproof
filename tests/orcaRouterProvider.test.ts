@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { OrcaRouterProvider, ORCAROUTER_BASE_URL, ORCAROUTER_DEFAULT_MODEL } from "@/lib/orcaRouter/orcaRouterProvider";
+import { OrcaRouterProvider, ORCAROUTER_BASE_URL, ORCAROUTER_DEFAULT_MODEL, ORCAROUTER_DEFAULT_MAX_TOKENS } from "@/lib/orcaRouter/orcaRouterProvider";
 import type { OrcaInput } from "@/lib/orcaRouter/types";
 
 const input: OrcaInput = {
@@ -24,7 +24,7 @@ describe("Item 1. OrcaRouter contract", () => {
       );
     };
 
-    const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, undefined, fakeFetch);
     const result = await provider.analyze(input);
 
     expect(calls).toHaveLength(1);
@@ -34,7 +34,10 @@ describe("Item 1. OrcaRouter contract", () => {
     expect(headers.Authorization).toBe("Bearer test-key");
     const sentBody = JSON.parse(calls[0].init.body as string);
     expect(sentBody.model).toBe(ORCAROUTER_DEFAULT_MODEL);
-    expect(ORCAROUTER_DEFAULT_MODEL).toBe("orcarouter/auto");
+    // Pinned non-Chinese default (never orcarouter/auto, which can route to Chinese vendors).
+    expect(ORCAROUTER_DEFAULT_MODEL).toBe("openai/gpt-4o-mini");
+    // Output is bounded so generation time is capped (latency control).
+    expect(sentBody.max_tokens).toBe(ORCAROUTER_DEFAULT_MAX_TOKENS);
 
     // resolved model comes ONLY from the header; body.model is exposed separately as response_model
     expect(result.meta.source).toBe("ORCAROUTER");
@@ -44,10 +47,22 @@ describe("Item 1. OrcaRouter contract", () => {
     expect(result.meta.cost_usd).toBe(0.0004);
   });
 
+  it("sends a custom max_tokens when configured (latency bound is tunable)", async () => {
+    const calls: { init: RequestInit }[] = [];
+    const fakeFetch = async (_url: string, init: RequestInit) => {
+      calls.push({ init });
+      return jsonResponse({ choices: [{ message: { content: "{}" } }] });
+    };
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, 800, fakeFetch);
+    await provider.analyze(input);
+    const sentBody = JSON.parse(calls[0].init.body as string);
+    expect(sentBody.max_tokens).toBe(800);
+  });
+
   it("resolved model is null when the header is absent, even if body.model is present", async () => {
     const fakeFetch = async () =>
       jsonResponse({ id: "orca-req-9", model: "orcarouter/auto", choices: [{ message: { content: "{}" } }] });
-    const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, undefined, fakeFetch);
     const result = await provider.analyze(input);
 
     expect(result.meta.model).toBeNull(); // NOT substituted from body.model
@@ -57,7 +72,7 @@ describe("Item 1. OrcaRouter contract", () => {
 
   it("reports null (not 'unknown') when model / request id / cost are not provided", async () => {
     const fakeFetch = async () => jsonResponse({ choices: [{ message: { content: "{}" } }] });
-    const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, undefined, fakeFetch);
     const result = await provider.analyze(input);
 
     expect(result.meta.model).toBeNull();

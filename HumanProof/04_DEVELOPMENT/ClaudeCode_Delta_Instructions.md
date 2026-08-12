@@ -34,8 +34,9 @@ UIに「実在人物の氏名、住所、生年月日、ID番号等の値を入�
 初期デモ文:
 
 ```text
-We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.
+We operate an 18+ online community and must confirm that each member is a real human being who is over 18, to keep out bots and underage signups. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm this.
 ```
+> 注記 (2026-08-13): 目的文に「実在の人間である必要 (real human)」を明記。実 OrcaRouter モデルは最小化が正しく働き、旧文 (「18+ の確認」だけ) では `over_18` 1件のみを required とした。本文により実 AI が正当に `over_18 + human_verified` の 2 proofs を返し、下記 §140 の期待 (「4 pieces → 2 proofs」) と実 AI 出力が一致する (over-steer ではなく目的の明確化)。
 
 デモ対象データ（正規化後・distinct 4 件）:
 
