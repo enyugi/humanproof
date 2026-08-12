@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { REQUESTED_DATA_CATEGORIES, CATEGORY_LABELS, CLAIM_LABELS, type RequestedDataCategory, type Claim } from "@/lib/claims";
+import { REQUESTED_DATA_CATEGORIES, type RequestedDataCategory, type Claim } from "@/lib/claims";
 import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
+import { DICT, LANG_SWITCH_LABEL, OTHER_LANG, catLabel, claimLabel, type Lang } from "@/lib/i18n";
 
 interface ProofSummary {
   issuer: string;
@@ -70,12 +71,15 @@ interface AnalyzeResponse {
   };
 }
 
-function OrNotProvided({ value }: { value: string | number | null }) {
-  if (value === null || value === undefined) return <span className="note">Not provided</span>;
+function OrNotProvided({ value, fallback }: { value: string | number | null; fallback: string }) {
+  if (value === null || value === undefined) return <span className="note">{fallback}</span>;
   return <code>{value}</code>;
 }
 
 export default function Page() {
+  const [lang, setLang] = useState<Lang>("ja");
+  const t = DICT[lang];
+
   const [providerMode, setProviderMode] = useState<Source | null>(null);
   const [serviceName, setServiceName] = useState("Demo 18+ Community");
   const [audience, setAudience] = useState("demo-18plus");
@@ -144,7 +148,7 @@ export default function Page() {
       if (data.timeout) {
         // upstream connection delay — distinct from an input error; user can simply retry
         setAnalysisTimeout(true);
-        setError(data.error ?? "Temporary connection delay. Please wait a moment and try again.");
+        setError(t.nextTimeout);
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Analysis failed");
@@ -251,12 +255,12 @@ export default function Page() {
   const a = result?.analysis;
   const isMock = providerMode === "MOCK";
   const buttonLabel = loading
-    ? "Analyzing…"
+    ? t.analyzing
     : providerMode === null
-      ? "Analyze"
+      ? t.analyzeGeneric
       : isMock
-        ? "Analyze (MOCK provider)"
-        : "Analyze with OrcaRouter";
+        ? t.analyzeMock
+        : t.analyzeReal;
 
   // Progress along the single demo path (orientation for a first-time viewer).
   const done = {
@@ -268,34 +272,49 @@ export default function Page() {
     revoke: verify?.status === "REVOKED",
   };
   const steps: { key: keyof typeof done; label: string }[] = [
-    { key: "analyze", label: "Analyze" },
-    { key: "request", label: "Proof request" },
-    { key: "consent", label: "Consent" },
-    { key: "issue", label: "Issue" },
-    { key: "verify", label: "Verify" },
-    { key: "revoke", label: "Revoke" },
+    { key: "analyze", label: t.steps[0] },
+    { key: "request", label: t.steps[1] },
+    { key: "consent", label: t.steps[2] },
+    { key: "issue", label: t.steps[3] },
+    { key: "verify", label: t.steps[4] },
+    { key: "revoke", label: t.steps[5] },
   ];
   const activeIndex = steps.findIndex((s) => !done[s.key]);
 
   return (
     <div className="wrap">
-      <header className="hp">
+      <div className="topbar">
+        <div className="brandmark">
+          <span className="logo">{t.brand}</span>
+          <span className="tag">{t.tagline}</span>
+        </div>
+        <button className="langtoggle" onClick={() => setLang(OTHER_LANG[lang])} aria-label="switch language">
+          {LANG_SWITCH_LABEL[lang]}
+        </button>
+      </div>
+
+      <header className="hero">
         <h1>
-          HumanProof <span className="tag">— Turn identity requests into minimum proof</span>
+          {lang === "ja" ? (
+            <>本人情報の要求を、<span className="accent">必要最小限の証明</span>に。</>
+          ) : (
+            <>Turn identity requests into <span className="accent">minimum proof</span>.</>
+          )}
         </h1>
-        <p className="sub">AI HACK 2026 MVP · analysis slice · Demo Trusted Issuer is simulated · AI does not verify identity or make legal determinations.</p>
+        <p className="lead">{t.heroLead}</p>
+        <p className="fineprint">{t.disclaimerTop}</p>
       </header>
 
       {providerMode && (
         <div className={isMock ? "banner" : "banner ok-banner"}>
           {isMock ? (
             <>
-              <strong>MOCK provider active.</strong> A deterministic rule-based analyzer — not a real model call. Audit
-              metadata below is labelled <span className="pill mock">MOCK</span>. Set <code>ORCAROUTER_API_KEY</code> for real OrcaRouter analysis.
+              <strong>{t.providerMockLead}</strong> <code>MOCK</code>
+              {t.providerMockTail}
             </>
           ) : (
             <>
-              <strong>OrcaRouter provider active.</strong> Real gateway call; audit shows actual metadata only.
+              <strong>{t.providerReal}</strong>
             </>
           )}
         </div>
@@ -314,33 +333,30 @@ export default function Page() {
       <div className="grid">
         {/* INPUT */}
         <section className="card">
-          <h2>1 · Service requirement</h2>
-          <p className="note" style={{ marginTop: 0 }}>
-            A service says what it wants. HumanProof&apos;s AI proposes the smallest proof that still satisfies the purpose.
-          </p>
-          <label htmlFor="svc">Service name</label>
+          <h2>{t.reqTitle}</h2>
+          <p className="note" style={{ marginTop: 0 }}>{t.reqIntro}</p>
+
+          <label className="field" htmlFor="svc">{t.serviceName}</label>
           <input id="svc" type="text" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
 
-          <label htmlFor="aud">Audience / slug</label>
+          <label className="field" htmlFor="aud">{t.audienceSlug}</label>
           <input id="aud" type="text" value={audience} onChange={(e) => setAudience(e.target.value)} />
 
-          <label htmlFor="purpose">Purpose and current process (required)</label>
+          <label className="field" htmlFor="purpose">{t.purposeLabel}</label>
           <textarea id="purpose" value={purposeText} onChange={(e) => setPurposeText(e.target.value)} />
-          <p className="note">
-            Use data-type names only. If a real name, address, date, or ID number is detected, the request is blocked before any AI call.
-          </p>
+          <p className="note">{t.purposeHint}</p>
 
           <button className="primary block" onClick={analyze} disabled={loading}>
             {buttonLabel}
           </button>
 
           <details className="tech">
-            <summary>Currently requested data — {selected.size} selected (edit)</summary>
+            <summary>{t.requestedToggle(selected.size)}</summary>
             <div className="checks">
               {REQUESTED_DATA_CATEGORIES.map((cat) => (
                 <label key={cat} className="check">
                   <input type="checkbox" checked={selected.has(cat)} onChange={() => toggle(cat)} />
-                  {CATEGORY_LABELS[cat]}
+                  {catLabel(lang, cat)}
                 </label>
               ))}
             </div>
@@ -349,38 +365,64 @@ export default function Page() {
 
         {/* RESULT */}
         <section className="card">
-          <h2>2 · Minimum proof</h2>
+          <h2>{t.resultTitle}</h2>
 
           {error && (
             <div className="error">
               {error}
-              <div className="note">{analysisTimeout ? "Next: wait a few seconds, then click Analyze again." : "Next: check the purpose text and try Analyze again."}</div>
+              <div className="note">{analysisTimeout ? t.nextTimeout : t.nextInput}</div>
             </div>
           )}
           {blockedTypes && (
             <div className="error">
-              <strong>Blocked before sending to AI.</strong> Real personal values were detected in the purpose text
-              ({blockedTypes.join(", ")}).
-              <div className="note">Next: replace real values with data-type names (e.g. &quot;full name&quot;) and Analyze again. Nothing was sent to the AI.</div>
+              <strong>{t.blockedLead}</strong> {t.blockedTail(blockedTypes.join(", "))}
+              <div className="note">{t.blockedNext}</div>
             </div>
           )}
-          {!result && !error && !blockedTypes && <p className="note">Click <strong>Analyze</strong> on the left to see the minimum proof.</p>}
+          {!result && !error && !blockedTypes && <p className="note">{t.emptyResult}</p>}
 
           {result && a && (
             <>
-              {/* Before / After headline */}
-              <div className="headline">
-                <span className="num">{a.data_count}</span> pieces of personal data →{" "}
-                <span className="num">{a.proof_count}</span> proofs
+              {/* SIGNATURE — redacted personal data -> minimal proof */}
+              <div className="transform">
+                <div>
+                  <p className="col-h">{t.currentlyRequested}</p>
+                  <ul className="redact-list">
+                    {a.detected_requested_data.map((d) => (
+                      <li key={d} className="redact-item">
+                        <span className="lbl">{catLabel(lang, d)}</span>
+                        <span className="bar" aria-hidden="true" />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="arrow">
+                  <span className="count">
+                    <span className="from">{a.data_count}</span>
+                    <span className="sep">→</span>
+                    <span className="to">{a.proof_count}</span>
+                  </span>
+                  <span className="glyph" aria-hidden="true">➜</span>
+                  <span className="cap">{lang === "ja" ? "最小化" : "minimized"}</span>
+                </div>
+                <div>
+                  <p className="col-h">{t.minimumProof}</p>
+                  <ul className="proof-list">
+                    {a.required_claims.map((c) => (
+                      <li key={c} className="proof-badge">
+                        <span className="tick" aria-hidden="true">✓</span>
+                        {claimLabel(lang, c)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <p className="note" style={{ textAlign: "center", marginTop: 0 }}>
-                The service can confirm what it needs without collecting {a.data_count} personal data item(s).
-              </p>
+              <p className="subhead">{t.headlineSub(a.data_count)}</p>
 
-              {/* 1. Stated purpose */}
-              <h2>Stated purpose</h2>
+              {/* Stated purpose */}
+              <h3 className="section-h">{t.statedPurpose}</h3>
               <ul className="list">
-                {a.stated_purposes.length === 0 && <li className="note">No clear purpose detected.</li>}
+                {a.stated_purposes.length === 0 && <li className="note">{t.noPurpose}</li>}
                 {a.stated_purposes.map((p) => (
                   <li key={p.id} className="ok">
                     {p.label} <span className="note">— {p.rationale}</span>
@@ -388,129 +430,76 @@ export default function Page() {
                 ))}
               </ul>
 
-              {/* 2. Currently requested */}
-              <h2>Currently requested</h2>
-              <ul className="list">
-                {a.detected_requested_data.length === 0 && <li className="note">None.</li>}
-                {a.detected_requested_data.map((d) => (
-                  <li key={d}>{CATEGORY_LABELS[d]}</li>
-                ))}
-              </ul>
-
-              {/* 3. Minimum proof */}
-              <h2>Minimum proof</h2>
-              <ul className="list">
-                {a.required_claims.map((c) => (
-                  <li key={c} className="ok">
-                    {CLAIM_LABELS[c]}
-                  </li>
-                ))}
-                {a.optional_claims.map((c) => (
-                  <li key={c} className="note">
-                    {CLAIM_LABELS[c]} (optional — add only if the purpose requires it)
-                  </li>
-                ))}
-              </ul>
-
-              {/* 4. Potentially unnecessary */}
-              <h2>Potentially unnecessary for the stated purpose</h2>
-              <p className="note">
-                We could not confirm why these items are needed from the purpose you described. Additional legal,
-                fraud-prevention, delivery, or operational purposes may change this recommendation.
-              </p>
-              <ul className="list">
-                {a.potentially_unnecessary_data.length === 0 && <li className="note">None flagged.</li>}
-                {a.potentially_unnecessary_data.map((p) => (
-                  <li key={p.item} className="flag">
-                    {CATEGORY_LABELS[p.item]}
-                  </li>
-                ))}
-              </ul>
-
-              {/* 5. Assumptions / clarifications */}
-              {(a.assumptions.length > 0 || a.clarification_questions.length > 0 || a.unsupported_needs.length > 0) && (
+              {/* Optional claims (if any) */}
+              {a.optional_claims.length > 0 && (
                 <>
-                  <h2>Assumptions / clarifications</h2>
+                  <h3 className="section-h">{t.minimumProof}</h3>
                   <ul className="list">
-                    {a.assumptions.map((s, i) => (
-                      <li key={`as-${i}`} className="note">
-                        Assumption: {s}
-                      </li>
-                    ))}
-                    {a.clarification_questions.map((s, i) => (
-                      <li key={`cq-${i}`} className="note">
-                        Question: {s}
-                      </li>
-                    ))}
-                    {a.unsupported_needs.map((s, i) => (
-                      <li key={`un-${i}`} className="note">
-                        Unsupported need: {s}
+                    {a.optional_claims.map((c) => (
+                      <li key={c} className="note">
+                        {claimLabel(lang, c)} {t.optionalSuffix}
                       </li>
                     ))}
                   </ul>
                 </>
               )}
 
-              {/* 6. Disclaimer */}
-              <p className="disclaimer">
-                AI recommendation only. HumanProof does not verify identity and does not provide legal or compliance
-                determinations. Final decisions remain with the service and the user.
-              </p>
+              {/* Potentially unnecessary */}
+              <h3 className="section-h">{t.potentiallyUnnecessary}</h3>
+              <p className="note">{t.potentiallyUnnecessaryNote}</p>
+              <ul className="list">
+                {a.potentially_unnecessary_data.length === 0 && <li className="note">{t.noneFlagged}</li>}
+                {a.potentially_unnecessary_data.map((p) => (
+                  <li key={p.item} className="flag">
+                    {catLabel(lang, p.item)} {p.reason_for_flag && <span className="note">— {p.reason_for_flag}</span>}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Assumptions / clarifications */}
+              {(a.assumptions.length > 0 || a.clarification_questions.length > 0 || a.unsupported_needs.length > 0) && (
+                <>
+                  <h3 className="section-h">{t.assumptionsTitle}</h3>
+                  <ul className="list">
+                    {a.assumptions.map((s, i) => (
+                      <li key={`as-${i}`} className="note">{t.assumptionPrefix}{s}</li>
+                    ))}
+                    {a.clarification_questions.map((s, i) => (
+                      <li key={`cq-${i}`} className="note">{t.questionPrefix}{s}</li>
+                    ))}
+                    {a.unsupported_needs.map((s, i) => (
+                      <li key={`un-${i}`} className="note">{t.unsupportedPrefix}{s}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              <p className="disclaimer">{t.disclaimerFull}</p>
 
               {/* Trust evidence — concise, always visible */}
               <div className="evidence">
-                <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>AI: {result.audit.source}</span>
-                <span className="pill real">Identity-value findings in AI-bound payload (heuristic): {result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span>
-                <span className="pill real">Latency: {result.audit.latency_ms} ms</span>
+                <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>{t.evAi}{result.audit.source}</span>
+                <span className="pill real">{t.evPii}{result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span>
+                <span className="pill real">{t.evLatency}{result.audit.latency_ms} ms</span>
               </div>
 
               {/* Audit (full technical detail, one click away) */}
               <details className="tech">
-                <summary>Technical details &amp; audit — Zero-PII evidence, OrcaRouter metadata</summary>
-              <div className="audit">
-                <div className="row">
-                  <span>Source</span>
-                  <span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>{result.audit.source}</span>
+                <summary>{t.auditToggle}</summary>
+                <div className="audit">
+                  <div className="row"><span>{t.auditSource}</span><span className={result.audit.source === "MOCK" ? "pill mock" : "pill real"}>{result.audit.source}</span></div>
+                  <div className="row"><span>{t.auditResolvedModel}</span><span><OrNotProvided value={result.audit.model} fallback={t.notProvided} /></span></div>
+                  <div className="row"><span>{t.auditResponseModel}</span><span><OrNotProvided value={result.audit.response_model} fallback={t.notProvided} /></span></div>
+                  <div className="row"><span>{t.auditLatency}</span><span><code>{result.audit.latency_ms} ms</code></span></div>
+                  <div className="row"><span>{t.auditRequestId}</span><span><OrNotProvided value={result.audit.request_id} fallback={t.notProvided} /></span></div>
+                  <div className="row"><span>{t.auditCost}</span><span>{result.audit.cost_usd !== null ? <code>${result.audit.cost_usd}</code> : <span className="note">{t.auditCostFallback}</span>}</span></div>
+                  <div className="row"><span>{t.auditPiiEgress}</span><span className="pill real">{result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span></div>
+                  <div className="row"><span>{t.auditRawDocs}</span><span className="pill real">{result.audit.zero_pii.raw_identity_documents_sent_to_ai}</span></div>
+                  <div className="row"><span>{t.auditInvalidDropped}</span><span><code>{result.audit.zero_pii.requested_data_invalid_dropped}</code></span></div>
+                  <div className="row"><span>{t.auditDupCollapsed}</span><span><code>{result.audit.zero_pii.requested_data_deduplicated}</code></span></div>
+                  <p className="note">{result.audit.zero_pii.basis}</p>
+                  {result.audit.note && <p className="note">{result.audit.note}</p>}
                 </div>
-                <div className="row">
-                  <span>Resolved model (X-Orca-Resolved-Model)</span>
-                  <span><OrNotProvided value={result.audit.model} /></span>
-                </div>
-                <div className="row">
-                  <span>Response model (body)</span>
-                  <span><OrNotProvided value={result.audit.response_model} /></span>
-                </div>
-                <div className="row">
-                  <span>Latency</span>
-                  <span><code>{result.audit.latency_ms} ms</code></span>
-                </div>
-                <div className="row">
-                  <span>Request ID</span>
-                  <span><OrNotProvided value={result.audit.request_id} /></span>
-                </div>
-                <div className="row">
-                  <span>Cost</span>
-                  <span>{result.audit.cost_usd !== null ? <code>${result.audit.cost_usd}</code> : <span className="note">See OrcaRouter request log</span>}</span>
-                </div>
-                <div className="row">
-                  <span>Detected personal identity attribute values in egress (heuristic)</span>
-                  <span className="pill real">{result.audit.zero_pii.detected_personal_identity_attribute_values_in_egress}</span>
-                </div>
-                <div className="row">
-                  <span>Raw identity documents sent to AI</span>
-                  <span className="pill real">{result.audit.zero_pii.raw_identity_documents_sent_to_ai}</span>
-                </div>
-                <div className="row">
-                  <span>Invalid (non-category) inputs dropped before egress</span>
-                  <span><code>{result.audit.zero_pii.requested_data_invalid_dropped}</code></span>
-                </div>
-                <div className="row">
-                  <span>Duplicate categories collapsed before egress</span>
-                  <span><code>{result.audit.zero_pii.requested_data_deduplicated}</code></span>
-                </div>
-                <p className="note">{result.audit.zero_pii.basis}</p>
-                {result.audit.note && <p className="note">{result.audit.note}</p>}
-              </div>
               </details>
             </>
           )}
@@ -521,49 +510,45 @@ export default function Page() {
         <>
           {/* STEP 3 — Proof request + explicit consent */}
           <section className="stepcard">
-            <span className="steptag">Step 3 · Proof request &amp; consent</span>
-            <h3>Choose what to share, then consent</h3>
-            <p className="note" style={{ marginTop: 0 }}>
-              Pick what to share (default = the minimum proof). The <strong>Demo Trusted Issuer (simulated — not real
-              identity verification)</strong> confirms the exact set; you then explicitly consent. The proof can never
-              contain more than you consented to.
-            </p>
+            <span className="steptag">{t.step3tag}</span>
+            <h3>{t.step3title}</h3>
+            <p className="note" style={{ marginTop: 0 }}>{t.step3intro}</p>
             <div className="checks">
               {a.required_claims.concat(a.optional_claims).map((c) => (
                 <label key={c} className="check">
                   <input type="checkbox" checked={consentClaims.has(c)} onChange={() => toggleConsentClaim(c)} />
-                  Share: {CLAIM_LABELS[c]}
+                  {t.sharePrefix}{claimLabel(lang, c)}
                 </label>
               ))}
             </div>
             <p className="note" style={{ marginTop: 10 }}>
-              Not included in this proof: {DEMO_USER_WITHHELD_PII.map((p) => CATEGORY_LABELS[p]).join(", ")}
+              {t.notIncluded(DEMO_USER_WITHHELD_PII.map((p) => catLabel(lang, p)).join(", "))}
             </p>
             <button className="primary" onClick={reviewQuote} disabled={consentClaims.size === 0}>
-              Create Proof Request
+              {t.createRequest}
             </button>
 
             {proofError && (
               <div className="error" style={{ marginTop: 12 }}>
                 {proofError}
-                <div className="note">Next: adjust your selection and create the Proof Request again.</div>
+                <div className="note">{t.proofErrNext}</div>
               </div>
             )}
 
             {quote && (
               <div className="banner ok-banner" style={{ marginTop: 14 }}>
-                <strong>Proof Request — exactly what will be issued</strong>
-                <div style={{ marginTop: 6 }}>Shared with: <code>{quote.audience}</code></div>
-                <div>Proofs: {quote.claims.map((c) => CLAIM_LABELS[c]).join(", ") || "none"}</div>
-                {quote.excluded.length > 0 && <div>Not available: {quote.excluded.join(", ")}</div>}
-                <div>Not included in this proof: {quote.withheld_pii.map((p) => CATEGORY_LABELS[p]).join(", ")}</div>
+                <strong>{t.proofRequestTitle}</strong>
+                <div style={{ marginTop: 6 }}>{t.sharedWith}<code>{quote.audience}</code></div>
+                <div>{t.proofsLabel}{quote.claims.map((c) => claimLabel(lang, c)).join(", ") || t.none}</div>
+                {quote.excluded.length > 0 && <div>{t.notAvailable}{quote.excluded.map((c) => claimLabel(lang, c)).join(", ")}</div>}
+                <div>{t.notIncluded(quote.withheld_pii.map((p) => catLabel(lang, p)).join(", "))}</div>
                 <label className="check" style={{ marginTop: 10 }}>
                   <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} />
-                  I consent to share exactly this
+                  {t.consentCheck}
                 </label>
                 <div>
                   <button className="primary" onClick={issueProof} disabled={!consentGiven || quote.claims.length === 0}>
-                    Issue Signed Proof
+                    {t.issueProof}
                   </button>
                 </div>
               </div>
@@ -573,32 +558,35 @@ export default function Page() {
           {/* STEP 4 — Issued proof */}
           {proof && (
             <section className="stepcard">
-              <span className="steptag">Step 4 · Signed Proof issued</span>
-              <h3>A signed, short-lived proof — only the selected claims</h3>
+              <span className="steptag">{t.step4tag}</span>
+              <h3>{t.step4title}</h3>
               <p className="note" style={{ marginTop: 0 }}>
-                Shares <strong>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</strong> with <code>{proof.audience}</code>,
-                signed by the Demo Issuer and valid until {new Date(proof.expires_at * 1000).toLocaleTimeString()}.
+                {t.step4intro(
+                  proof.claims.map((c) => claimLabel(lang, c)).join(", "),
+                  proof.audience,
+                  new Date(proof.expires_at * 1000).toLocaleTimeString(),
+                )}
               </p>
               {revocationCode && (
                 <div className="banner">
-                  <strong>Your revocation code (demo — shown so you can revoke):</strong> <code className="mono">{revocationCode}</code>
-                  <div className="note">Only the holder of this code can revoke. A service shown the proof cannot.</div>
+                  <strong>{t.revocationLead}</strong> <code className="mono">{revocationCode}</code>
+                  <div className="note">{t.revocationNote}</div>
                 </div>
               )}
               <details className="tech">
-                <summary>Proof internals (issuer, pairwise subject, id, expiry)</summary>
+                <summary>{t.proofInternals}</summary>
                 <div className="audit">
-                  <div className="row"><span>Issuer</span><span><code>{proof.issuer}</code></span></div>
-                  <div className="row"><span>Subject (pairwise, per-audience)</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
-                  <div className="row"><span>Claims</span><span>{proof.claims.map((c) => CLAIM_LABELS[c]).join(", ")}</span></div>
-                  <div className="row"><span>Expires at</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
-                  <div className="row"><span>Proof id (jti)</span><span><code className="mono">{proof.jti}</code></span></div>
+                  <div className="row"><span>{t.internalIssuer}</span><span><code>{proof.issuer}</code></span></div>
+                  <div className="row"><span>{t.internalSubject}</span><span><code className="mono">{proof.subject.slice(0, 24)}…</code></span></div>
+                  <div className="row"><span>{t.internalClaims}</span><span>{proof.claims.map((c) => claimLabel(lang, c)).join(", ")}</span></div>
+                  <div className="row"><span>{t.internalExpires}</span><span><code>{new Date(proof.expires_at * 1000).toISOString()}</code></span></div>
+                  <div className="row"><span>{t.internalJti}</span><span><code className="mono">{proof.jti}</code></span></div>
                 </div>
               </details>
-              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button className="primary" onClick={verifyProofNow}>Verify as the service</button>
-                <button className="primary" onClick={revokeProof} disabled={!revocationCode} style={{ background: "var(--danger)" }}>
-                  Revoke (you hold the code)
+              <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="primary" onClick={verifyProofNow}>{t.verifyAsService}</button>
+                <button className="primary ghost-danger" onClick={revokeProof} disabled={!revocationCode}>
+                  {t.revokeBtn}
                 </button>
               </div>
             </section>
@@ -607,23 +595,19 @@ export default function Page() {
           {/* STEP 5/6 — Verification result */}
           {verify && (
             <section className="stepcard">
-              <span className="steptag">{verify.status === "REVOKED" ? "Step 6 · After revocation" : "Step 5 · Verification"}</span>
-              <h3>{verify.status === "VALID" ? "The service confirms the proof" : verify.status === "REVOKED" ? "The same proof no longer works" : "The proof could not be confirmed"}</h3>
+              <span className="steptag">{verify.status === "REVOKED" ? t.step6tag : t.step5tag}</span>
+              <h3>{verify.status === "VALID" ? t.verifyTitleValid : verify.status === "REVOKED" ? t.verifyTitleRevoked : t.verifyTitleFail}</h3>
               <div className={`verdict ${verify.status === "VALID" ? "ok" : "bad"}`}>{verify.status}</div>
               <p className="note" style={{ textAlign: "center" }}>
-                {verify.status === "VALID"
-                  ? "Signature, issuer, audience, expiry and revocation all checked independently. Now try Revoke, then Verify again."
-                  : verify.status === "REVOKED"
-                    ? "Revocation is checked at verify time — the proof is now rejected."
-                    : "Fail-closed: validity could not be established, so the proof is not accepted."}
+                {verify.status === "VALID" ? t.verifyNoteValid : verify.status === "REVOKED" ? t.verifyNoteRevoked : t.verifyNoteFail}
               </p>
               <details className="tech">
-                <summary>Independent checks</summary>
+                <summary>{t.independentChecks}</summary>
                 <div className="audit">
                   {(["signature", "issuer", "audience", "expiry", "revocation"] as const).map((k) => (
                     <div className="row" key={k}>
-                      <span>{k}</span>
-                      <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? "pass" : "fail"}</span>
+                      <span>{t.checkNames[k]}</span>
+                      <span className={verify.checks[k] ? "pill real" : "pill mock"}>{verify.checks[k] ? t.pass : t.fail}</span>
                     </div>
                   ))}
                 </div>
