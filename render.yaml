@@ -1,0 +1,20 @@
+# Render Blueprint — HumanProof (Next.js) を Web Service として公開する。
+# 使い方: Render ダッシュボード → New → Blueprint → このリポジトリを接続すると本ファイルが読まれる。
+# ORCAROUTER_API_KEY は秘密なので sync:false（ダッシュボードで値を入力する。git には入れない）。
+services:
+  - type: web
+    name: humanproof
+    runtime: node
+    plan: free
+    region: singapore # 日本から最も近い無料リージョン
+    buildCommand: npm install && npm run build
+    startCommand: npm start # next start は PORT 環境変数を尊重する（Render が PORT を注入）
+    autoDeploy: true
+    envVars:
+      - key: ORCAROUTER_API_KEY
+        sync: false # ダッシュボードで実キーを設定（リポには保存しない）
+      - key: NODE_VERSION
+        value: "22"
+      # 任意: モデル/タイムアウトは既定でよいが、上書きしたい場合のみダッシュボードで設定
+      # - key: ORCAROUTER_MODEL
+      #   value: openai/gpt-4o-mini
