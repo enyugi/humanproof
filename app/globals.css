@@ -257,6 +257,38 @@ details.tech[open] > summary { border-bottom: 1px solid var(--border); margin-bo
 .verdict.ok { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
 .verdict.bad { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 
+/* keep JP phrases from breaking mid-word */
+.nowrap { white-space: nowrap; }
+
+/* ---------- value story band ---------- */
+.valueband { margin: 0 0 22px; }
+.vb-problem { font-size: clamp(15px, 1.9vw, 18px); font-weight: 700; color: var(--ink); margin: 0 0 8px; max-width: 72ch; }
+.vb-what { font-size: 14.5px; color: var(--ink-2); margin: 0 0 16px; max-width: 72ch; }
+.vb-benefits, .vb-highlight { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.vb-benefits { margin-bottom: 14px; }
+@media (max-width: 640px) { .vb-benefits, .vb-highlight { grid-template-columns: 1fr; } }
+.vb-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.vb-card.user { border-color: var(--accent); background: var(--accent-soft); }
+.vb-card h3 { margin: 0 0 6px; font-size: 14.5px; }
+.vb-card.user h3 { color: var(--accent-ink); }
+.vb-card.user h3::before { content: "🔒 "; }
+.vb-card p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.vb-hl { background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--brand); border-radius: 10px; padding: 12px 14px; }
+.vb-hl .vb-k { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand); margin-bottom: 4px; }
+.vb-hl p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+/* ---------- example scenarios (AI necessity) ---------- */
+.scenarios { margin: 14px 0 4px; }
+.sc-title { font-size: 12.5px; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
+.sc-btns { display: flex; flex-direction: column; gap: 8px; }
+.sc-btn {
+  text-align: left; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 10px 12px; cursor: pointer; font: inherit; transition: border-color .15s, background .15s;
+}
+.sc-btn:hover { border-color: var(--brand); background: var(--brand-soft); }
+.sc-btn .sc-name { display: block; font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.sc-btn .sc-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
 @media (max-width: 560px) {
   .wrap { padding: 20px 14px 72px; }
   .audit .row { flex-direction: column; align-items: flex-start; gap: 2px; }

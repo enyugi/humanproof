@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { REQUESTED_DATA_CATEGORIES, type RequestedDataCategory, type Claim } from "@/lib/claims";
 import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
-import { DICT, LANG_SWITCH_LABEL, OTHER_LANG, catLabel, claimLabel, type Lang } from "@/lib/i18n";
+import { DICT, LANG_SWITCH_LABEL, OTHER_LANG, SCENARIOS, catLabel, claimLabel, type Lang, type Scenario } from "@/lib/i18n";
 
 interface ProofSummary {
   issuer: string;
@@ -118,6 +118,17 @@ export default function Page() {
       .then((d) => setProviderMode(d.source as Source))
       .catch(() => setProviderMode(null));
   }, []);
+
+  function loadScenario(s: Scenario) {
+    setServiceName(s.serviceName);
+    setAudience(s.audience);
+    setPurposeText(s.purposeText);
+    setSelected(new Set(s.cats));
+    setResult(null);
+    setError(null);
+    setBlockedTypes(null);
+    setAnalysisTimeout(false);
+  }
 
   function toggle(cat: RequestedDataCategory) {
     setSelected((prev) => {
@@ -281,6 +292,9 @@ export default function Page() {
   ];
   const activeIndex = steps.findIndex((s) => !done[s.key]);
 
+  const scName: Record<Scenario["key"], string> = { scBasic: t.scBasic, scDelivery: t.scDelivery, scInjection: t.scInjection };
+  const scDesc: Record<Scenario["key"], string> = { scBasic: t.scBasicDesc, scDelivery: t.scDeliveryDesc, scInjection: t.scInjectionDesc };
+
   return (
     <div className="wrap">
       <div className="topbar">
@@ -296,14 +310,46 @@ export default function Page() {
       <header className="hero">
         <h1>
           {lang === "ja" ? (
-            <>本人情報の要求を、<span className="accent">必要最小限の証明</span>に。</>
+            <>
+              <span className="nowrap">本人情報の要求を、</span>
+              <span className="nowrap"><span className="accent">必要最小限の証明</span>に。</span>
+            </>
           ) : (
-            <>Turn identity requests into <span className="accent">minimum proof</span>.</>
+            <>
+              <span className="nowrap">Turn identity requests</span>{" "}
+              <span className="nowrap">into <span className="accent">minimum proof</span>.</span>
+            </>
           )}
         </h1>
         <p className="lead">{t.heroLead}</p>
         <p className="fineprint">{t.disclaimerTop}</p>
       </header>
+
+      {/* Value story — problem, what it is, who benefits, why AI */}
+      <section className="valueband">
+        <p className="vb-problem">{t.valueProblem}</p>
+        <p className="vb-what">{t.valueWhat}</p>
+        <div className="vb-benefits">
+          <div className="vb-card user">
+            <h3>{t.valueUserTitle}</h3>
+            <p>{t.valueUser}</p>
+          </div>
+          <div className="vb-card">
+            <h3>{t.valueServiceTitle}</h3>
+            <p>{t.valueService}</p>
+          </div>
+        </div>
+        <div className="vb-highlight">
+          <div className="vb-hl">
+            <span className="vb-k">{t.valuePocTitle}</span>
+            <p>{t.valuePoc}</p>
+          </div>
+          <div className="vb-hl">
+            <span className="vb-k">{t.valueAiTitle}</span>
+            <p>{t.valueAi}</p>
+          </div>
+        </div>
+      </section>
 
       {providerMode && (
         <div className={isMock ? "banner" : "banner ok-banner"}>
@@ -335,6 +381,19 @@ export default function Page() {
         <section className="card">
           <h2>{t.reqTitle}</h2>
           <p className="note" style={{ marginTop: 0 }}>{t.reqIntro}</p>
+
+          <div className="scenarios">
+            <p className="sc-title">{t.scenariosTitle}</p>
+            <div className="sc-btns">
+              {SCENARIOS.map((s) => (
+                <button key={s.id} type="button" className="sc-btn" onClick={() => loadScenario(s)}>
+                  <span className="sc-name">{scName[s.key]}</span>
+                  <span className="sc-desc">{scDesc[s.key]}</span>
+                </button>
+              ))}
+            </div>
+            <p className="note">{t.scenariosHint}</p>
+          </div>
 
           <label className="field" htmlFor="svc">{t.serviceName}</label>
           <input id="svc" type="text" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
