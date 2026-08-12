@@ -159,7 +159,7 @@ describe("provider passes signal and never leaks body/prompt/auth", () => {
       seenSignal = init.signal as AbortSignal | null | undefined;
       return new Response(SECRET_BODY, { status: 500 });
     };
-    const provider = new OrcaRouterProvider("test-key", undefined, undefined, fakeFetch);
+    const provider = new OrcaRouterProvider("test-key", undefined, undefined, undefined, fakeFetch);
     const input: OrcaInput = { system: "s", sanitizedServiceText: "x", requestedDataCategories: [], allowlist: [], signal: AbortSignal.timeout(1000) };
     let caught: unknown;
     try {

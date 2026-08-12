@@ -5,7 +5,19 @@
 import { OrcaUpstreamError, type OrcaInput, type OrcaProvider, type OrcaResult } from "./types";
 
 export const ORCAROUTER_BASE_URL = "https://api.orcarouter.ai/v1";
-export const ORCAROUTER_DEFAULT_MODEL = "orcarouter/auto";
+// Pinned, non-Chinese, low-latency default (measured ~2.6s vs orcarouter/auto's ~55s frontier route).
+// Pinning is REQUIRED to honor the "no Chinese-origin models" rule: orcarouter/auto can route to
+// Chinese vendors (qwen/deepseek/etc.), so we never default to auto. Override with ORCAROUTER_MODEL.
+export const ORCAROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
+// Cap output tokens so generation time is bounded. The analysis JSON (purposes / claims /
+// potentially-unnecessary / assumptions / summary) fits comfortably under this; env-overridable.
+export const ORCAROUTER_DEFAULT_MAX_TOKENS = 1500;
+
+function parseMaxTokens(v: string | undefined): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return ORCAROUTER_DEFAULT_MAX_TOKENS;
+  return Math.min(8192, Math.max(256, Math.floor(n)));
+}
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -14,6 +26,7 @@ export class OrcaRouterProvider implements OrcaProvider {
     private apiKey: string,
     private baseUrl: string = process.env.ORCAROUTER_BASE_URL ?? ORCAROUTER_BASE_URL,
     private model: string = process.env.ORCAROUTER_MODEL ?? ORCAROUTER_DEFAULT_MODEL,
+    private maxTokens: number = parseMaxTokens(process.env.ORCAROUTER_MAX_TOKENS),
     private fetchImpl: FetchLike = fetch,
   ) {}
 
@@ -41,6 +54,7 @@ export class OrcaRouterProvider implements OrcaProvider {
         ],
         response_format: { type: "json_object" },
         temperature: 0,
+        max_tokens: this.maxTokens,
       }),
       signal: input.signal, // per-call timeout / overall deadline / client disconnect
     });

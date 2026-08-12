@@ -50,7 +50,7 @@ AI HACKでは「企業が求めている」と断定せず、**実在し得る�
 
 例:
 
-> We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.
+> We operate an 18+ online community and must confirm that each member is a real human being who is over 18, to keep out bots and underage signups. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm this.
 
 AIは次を行う。
 

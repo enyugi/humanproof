@@ -30,7 +30,7 @@ interface Quote {
 }
 
 const DEMO_TEXT =
-  "We operate an 18+ community. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm eligibility.";
+  "We operate an 18+ online community and must confirm that each member is a real human being who is over 18, to keep out bots and underage signups. We currently ask users for their full name, exact date of birth, home address and ID photo to confirm this.";
 const DEMO_SELECTED: RequestedDataCategory[] = ["full_name", "exact_birth_date", "address", "id_photo"];
 
 type Source = "MOCK" | "ORCAROUTER";
