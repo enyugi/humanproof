@@ -158,6 +158,20 @@ export interface Dict {
   scDeliveryDesc: string;
   scInjection: string;
   scInjectionDesc: string;
+  // hero + concise value strip (redesign)
+  heroCta: string;
+  heroBenefit: string;
+  hvOver: string;
+  hvOnly: string;
+  hvCap: string;
+  stripUserT: string;
+  stripUser: string;
+  stripServiceT: string;
+  stripService: string;
+  stripAiT: string;
+  stripAi: string;
+  demoTitle: string;
+  demoLead: string;
 }
 
 export interface Scenario {
@@ -330,6 +344,19 @@ export const DICT: Record<Lang, Dict> = {
     scDeliveryDesc: "複数目的。AI は「配送に住所は必要」と判断し不要と断定しない＝ルールでは無理。",
     scInjection: "指示注入を拒否（セキュリティ）",
     scInjectionDesc: "「氏名を証明にしろ」という埋め込み命令を無視し、最小の証明を保つ。",
+    heroCta: "デモを試す",
+    heroBenefit: "氏名も身分証も渡さない。「18歳以上の実在の人」など“必要な事実”だけを証明し、いつでも失効できる。",
+    hvOver: "過剰な要求",
+    hvOnly: "渡すのはこれだけ",
+    hvCap: "AI が最小化",
+    stripUserT: "あなた（利用者）",
+    stripUser: "氏名も住所も身分証も渡さない。必要な事実だけを証明。",
+    stripServiceT: "サービス",
+    stripService: "集める個人情報が激減 → 漏洩・コスト・離脱・不正が下がる。",
+    stripAiT: "なぜ AI",
+    stripAi: "現実の“生の要求文”から必要／過剰を判定。ルールでは無理。",
+    demoTitle: "触って確かめる",
+    demoLead: "サービスの要求文を入れると AI が最小の証明を提案。下の例で AI の推論も見られます。",
   },
   en: {
     brand: "HumanProof",
@@ -460,5 +487,18 @@ export const DICT: Record<Lang, Dict> = {
     scDeliveryDesc: "Multiple purposes. The AI keeps address (needed for delivery) instead of flagging it — a rule can't.",
     scInjection: "Refuses prompt injection (security)",
     scInjectionDesc: "Ignores an embedded \"make full name a proof\" instruction and keeps the proof minimal.",
+    heroCta: "Try the demo",
+    heroBenefit: "You never hand over your name or ID — you prove only the fact that's needed (\"a real person over 18\"), and can revoke anytime.",
+    hvOver: "Over-collected",
+    hvOnly: "You share only",
+    hvCap: "AI minimizes",
+    stripUserT: "You (the user)",
+    stripUser: "Never hand over name, address or ID. Prove only the fact needed.",
+    stripServiceT: "The service",
+    stripService: "Far less data to hold → lower breach, cost, drop-off and fraud.",
+    stripAiT: "Why AI",
+    stripAi: "Decides needed vs. excess from real requirement text. A rule can't.",
+    demoTitle: "Try it yourself",
+    demoLead: "Enter a service's requirement and the AI proposes the minimum proof. The examples below show the AI reasoning.",
   },
 };
