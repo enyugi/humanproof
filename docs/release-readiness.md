@@ -11,7 +11,7 @@
 - [x] 動画をYouTube限定公開し、URL `https://youtu.be/Zr59tJ3ceO4` を確定
 - [x] Zenn記事を公開し、URL `https://zenn.dev/enyugi/articles/b5a703567eec46` を確定
 - [x] 公開前の秘密情報監査後にリポジトリをpublic化
-- [ ] 提出フォームへ最終URLを入力し、期限前に送信
+- [x] 提出フォームへ最終URLを入力し、2026-08-13に送信完了
 
 ## 🟡 信頼性のため提出前に確認
 
