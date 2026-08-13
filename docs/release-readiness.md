@@ -4,25 +4,25 @@
 
 ## 🔴 提出前に外部作業が必要
 
-- [ ] 現在の実装をユーザー確認後にmainへ反映し、本番へデプロイ
-- [ ] 本番URLで`/`、`/demo`、`/studio`を確認
-- [ ] 実OrcaRouterで代表入力を1回実行し、source / model / latency / request IDを記録
+- [x] 現在の実装をmainへ反映し、Render本番へデプロイ
+- [x] 本番URLで`/`、`/demo`、`/studio`がHTTP 200かつ現行内容であることを確認
+- [x] 実OrcaRouterで酒類宅配の代表入力を実行し、`source=ORCAROUTER`、`response_model=gpt-4o-mini-2024-07-18`、`latency=5151ms`、request IDを確認
 - [x] 実デモ画面から3分以内の720p動画を生成
 - [ ] 動画を最終試聴し、必要なら本人ナレーションへ差し替え、YouTube限定公開URLを確定
 - [ ] QiitaまたはZennへ記事を公開し、URLを確定
-- [ ] 公開前の秘密情報監査後にリポジトリをpublic化
+- [x] 公開前の秘密情報監査後にリポジトリをpublic化
 - [ ] 提出フォームへ最終URLを入力し、期限前に送信
 
 ## 🟡 信頼性のため提出前に確認
 
-- [ ] 本番で`VALID → revoke → REVOKED`を完走
+- [x] 本番で`VALID → revoke → REVOKED`を完走
 - [ ] PCと390pxで画像、改行、ボタン位置を確認
 - [x] Demo Trusted Issuerの模擬表示が動画で読める
 - [x] ピッチ、動画、README、記事が「2 Proof / 4 withheld」で一致
 - [ ] Proof失効を「保有者の秘密コード」と説明
 - [ ] 同意の永続管理を未実装と説明
 - [ ] costを取得できない場合に数値を作っていない
-- [ ] Render初回アクセスを発表前に手動でwarm up
+- [x] 今回の公開確認ではRenderをwarm up済み。発表当日も開始前に再実施する
 - [x] 現行実装・正本をMistralで技術再監査し、反証確認後`GO / Critical 0 / High 0`
 - [x] 現行提出原稿・PitchをGeminiで日本語再監査し、`GO / Critical・High 0 / 修正提案 0`
 

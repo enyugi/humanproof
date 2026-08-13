@@ -25,7 +25,7 @@ GitHub公開用READMEはリポジトリ直下の `README.md` を使用する。
 - LP: `https://humanproof.onrender.com/`
 - Guided Demo: `https://humanproof.onrender.com/demo`
 - AI Policy Studio: `https://humanproof.onrender.com/studio`
-- 公開リポジトリ: 公開後に記入
+- 公開リポジトリ: `https://github.com/enyugi/humanproof`
 - デモ動画: ローカル動画生成済み。YouTube限定公開後にURLを記入
 - Qiita / Zenn: 公開後に記入
 
