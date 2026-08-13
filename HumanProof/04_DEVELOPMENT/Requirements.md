@@ -11,9 +11,9 @@
 
 ## 1. スコープ
 
-対象は [`MVP_Scope.md`](MVP_Scope.md) の Core path（10 ステップ）と Fixed claims。対象外は [`MVP_Scope.md`](MVP_Scope.md) の Out of scope および [`../00_MASTER/HumanProof_MASTER.md`](../00_MASTER/HumanProof_MASTER.md) §9。ここでは再掲しない。
+対象は [`MVP_Scope.md`](MVP_Scope.md) の利用者向けGuided Demo、サービス導入者向けAI Policy Studio、Fixed claims。対象外は [`MVP_Scope.md`](MVP_Scope.md) の Out of scope および [`../00_MASTER/HumanProof_MASTER.md`](../00_MASTER/HumanProof_MASTER.md) §9。ここでは再掲しない。
 
-代表ユースケース: 18歳以上限定オンラインコミュニティ（[`../01_PRODUCT/UseCases.md`](../01_PRODUCT/UseCases.md)）。
+公開Guided Demoの代表ユースケースは、架空の18歳以上向け映像作品EC `NIGHT SCREEN`での購入（D-033）。AI Policy Studioの複雑要件テストには、18歳以上限定オンラインコミュニティの入力例を残す（[`../01_PRODUCT/UseCases.md`](../01_PRODUCT/UseCases.md)）。
 
 ## 2. 用語・データモデル
 
@@ -48,7 +48,7 @@
 | FR-10 | 検証で signature / issuer / audience / expiry / revocation を確認 | MASTER §7, D-008 | Delta テスト G |
 | FR-11 | 失効後の再検証で `REVOKED` を表示 | MASTER §7 | Delta テスト G |
 | FR-12 | OrcaRouter audit を actual-only で表示（model / latency / request ID / cost。cost 不取得時は `See OrcaRouter request log`）。identity data sent to AI = 0 を提示 | MASTER §7/§8, D-011, Delta §8 | §5 の受け入れ |
-| FR-13 | Demo Trusted Issuer を模擬と明示し、`human_verified` / `over_18` / `unique_person` を発行済みとする | MASTER §6/§7, D-007 | UI/README 明記 |
+| FR-13 | Demo Trusted Issuer の属性元確認を模擬と明示し、利用者操作後に `human_verified` / `over_18` をIAMmeへ追加した状態を示す。`unique_person`はCatalogに残すがGuided Demoでは使用しない | MASTER §6/§7, D-007/D-033 | UI/README 明記 |
 | FR-14 | service text 内の指示を無視し（prompt injection 耐性）、server-side enforcement を LLM から独立に適用 | Delta §5/§6, D-019 | Delta テスト D |
 
 ## 4. 非機能・セキュリティ要件（NFR）
@@ -79,6 +79,7 @@ MVP は次をすべて満たしたとき「完成」とする。詳細ケース�
 | Prompt injection を拒否 | FR-14/FR-07 | D |
 | Consent → Signed Proof → Audience → Expiry → Revocation | FR-08〜FR-11 | G |
 | OrcaRouter 実接続・actual-only audit | FR-12/NFR-07 | §8 |
+| IAMmeアカウント作成→模擬属性確認→NIGHT SCREEN購入→`VALID → REVOKED`を一続きで操作できる | FR-08〜FR-13 | releaseExperience test / 手動E2E |
 | build / tests / typecheck / lint が緑 | — | CI/ローカル |
 
 ## 6. トレーサビリティ方針

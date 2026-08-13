@@ -12,11 +12,11 @@
 
 ## 3. Live demo
 
-4 pieces of personal data → 2 proofs。Consent、発行、検証、失効まで見せる。
+IAMmeデモアカウント作成 → Demo Trusted Issuerの属性確認（元確認のみ模擬）→ NIGHT SCREENで購入 → 4 pieces of personal dataではなく2 proofsだけ共有 → Consent、署名、検証、購入完了、失効まで見せる。
 
 ## 4. Why AI / OrcaRouter
 
-非定型の要件から目的、要求データ、曖昧さを構造化。Zero PII。実model、latency、request ID、cost logを表示。
+AIは購入時ではなく導入時に使う。非定型の要件から目的、要求データ、曖昧さを構造化。Zero PII。実model、latency、request ID、cost logを表示。
 
 ## 5. Trust and business hypothesis
 
@@ -25,4 +25,3 @@ Trusted Issuerが根。企業価値は漏洩、コスト、離脱、不正、監
 ## 6. Future
 
 人間だけでなく、AI Agentが誰から何の権限をいつまで与えられているかを最小Proofで示すTrust Layerへ。
-

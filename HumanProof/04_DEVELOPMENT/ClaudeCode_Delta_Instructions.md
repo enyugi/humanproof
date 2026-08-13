@@ -1,5 +1,7 @@
 # Claude Code 差分指示書 — v2.0
 
+> **履歴上の実装指示:** 本書のService Requirement UIは現在 `/studio` に実装されている。公開体験 `/demo` の最新版は `../00_MASTER/RELEASE_EXPERIENCE_CANON.md` とD-033に従い、IAMmeアカウント作成→模擬属性確認→NIGHT SCREEN購入→`VALID → REVOKED`とする。本書を一般利用者向け画面の順序として再解釈しない。
+
 **Purpose:** 旧初回マスター開発指示書に対し、Mistral / Sakana AIレビュー後の変更を一度で反映する。  
 **Do not restart from scratch.** 最初に現在のリポジトリと実装状況を検査し、動いている機能とユーザー変更を保持して差分だけを実装する。
 

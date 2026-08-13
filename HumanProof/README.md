@@ -1,13 +1,14 @@
 # HumanProof documentation hub
 
-**Updated:** 2026-08-11  
-**Purpose:** HumanProof の現行方針を、ChatGPT・Claude Code・人間が同じ順序で参照するための入口。
+**Updated:** 2026-08-13
+**Purpose:** IAMmeの上位構想とHumanProof PoCの現行方針を、ChatGPT・Claude Code・人間が同じ順序で参照するための入口。
 
 ## 最初に読む順序
 
 1. [`00_MASTER/HumanProof_MASTER.md`](00_MASTER/HumanProof_MASTER.md) — 現在の正本
 2. [`00_MASTER/DECISIONS.md`](00_MASTER/DECISIONS.md) — 採用・保留・却下・未検証の判断台帳
-3. 作業別の文書
+3. [`00_MASTER/RELEASE_EXPERIENCE_CANON.md`](00_MASTER/RELEASE_EXPERIENCE_CANON.md) — IAMme / HumanProofの名称、LP・デモ・Studioの役割
+4. 作業別の文書
    - プロダクト検討: [`01_PRODUCT/`](01_PRODUCT/)
    - 壁打ち・市場仮説: [`02_RESEARCH/`](02_RESEARCH/)
    - ピッチ／デモ: [`03_AI_HACK/`](03_AI_HACK/)
@@ -22,12 +23,13 @@
 
 1. `00_MASTER/HumanProof_MASTER.md`
 2. `00_MASTER/DECISIONS.md`
-3. `04_DEVELOPMENT/MVP_Scope.md`
-4. `04_DEVELOPMENT/Requirements.md`
-5. `04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md`
-6. その他のテーマ別文書
-7. `06_RECORDS/` の経緯・原回答
-8. `99_REFERENCE/` の旧原本
+3. `00_MASTER/RELEASE_EXPERIENCE_CANON.md`（名称・公開体験・ページ構成に限る）
+4. `04_DEVELOPMENT/MVP_Scope.md`
+5. `04_DEVELOPMENT/Requirements.md`
+6. `04_DEVELOPMENT/ClaudeCode_Delta_Instructions.md`
+7. その他のテーマ別文書
+8. `06_RECORDS/` の経緯・原回答
+9. `99_REFERENCE/` の旧原本
 
 `99_REFERENCE/` は履歴確認用であり、そこにある旧仕様をそのまま現行仕様と解釈しない。
 `06_RECORDS/` は「なぜそう決めたか」を追跡する証跡であり、正本を上書きしない。

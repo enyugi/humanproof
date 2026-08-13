@@ -2,16 +2,23 @@
 
 ## Core path
 
-1. Demo Human ID
-2. Service purpose + currently requested data input
-3. OrcaRouter AI analysis
-4. Purpose / minimum proofs / potentially unnecessary items / caveats
-5. Proof request
-6. Explicit user consent
-7. Signed, audience-bound, short-lived Proof
-8. Verification
-9. Revocation and re-verification
-10. OrcaRouter audit
+### 利用者向けGuided Demo（`/demo`）
+
+1. IAMmeデモアカウント作成
+2. Demo Trusted Issuerによる属性元確認（元確認のみ模擬）
+3. NIGHT SCREENでIAMmeを選択
+4. 保存済みPolicyに基づく2 Proofの共有確認
+5. Explicit user consent
+6. Signed, audience-bound, short-lived Proof
+7. NIGHT SCREENで検証し購入完了（`VALID`）
+8. Revocation and re-verification（`REVOKED`）
+
+### サービス導入者向けAI Policy Studio（`/studio`）
+
+1. Service purpose + currently requested data input
+2. OrcaRouter AI analysis
+3. Purpose / minimum proofs / potentially unnecessary items / caveats
+4. OrcaRouter actual-only audit
 
 ## Fixed claims
 
