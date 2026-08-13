@@ -90,6 +90,14 @@ describe("E. Raw PII in service text -> BLOCK (nothing sent)", () => {
     ).rejects.toBeInstanceOf(PiiBlockedError);
     expect(cap.calls).toBe(0); // provider was never called => zero egress
   });
+
+  it("does not block a common surname when it is part of an organization name", async () => {
+    const cap = new CapturingProvider(mock());
+    await expect(
+      runAnalysis({ purposeText: "佐藤商店の会員登録で18歳以上を確認します。", requestedData: [] }, cap),
+    ).resolves.toBeDefined();
+    expect(cap.calls).toBe(1);
+  });
 });
 
 describe("F. Simple case", () => {

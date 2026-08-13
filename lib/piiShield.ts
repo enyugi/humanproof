@@ -59,7 +59,10 @@ const DETECTORS: Detector[] = [
     re: /[一-鿿]{2,4}(?:都|道|府|県)[一-鿿぀-ゟ゠-ヿ]{1,12}(?:市|区|町|村)/,
   },
   { type: "address", re: /[一-鿿぀-ゟ゠-ヿ\d]{1,20}(?:丁目|番地|番|号)/ },
-  // Person name: contextual ("user Jane", "name: Taro") + a small curated dictionary
+  // Person name: contextual ("user Jane", "name: Taro") + a small curated dictionary.
+  // We deliberately do not block common Japanese surnames on their own: the same strings
+  // occur in organization/place names (e.g. 佐藤商店, 山本ビル), which are valid service
+  // requirements. Japanese names are blocked when labelled or paired with an honorific.
   {
     type: "person_name",
     re: /\b(?:user|users|name|named|customer|member|applicant|our user)\s*:?\s+([A-Z][a-z]{1,})\b/,
@@ -72,8 +75,6 @@ const DETECTORS: Detector[] = [
   { type: "person_name", re: /[一-鿿]{1,4}(?:さん|様|氏|くん|ちゃん)/ },
   // Labeled Japanese name: 氏名：山田太郎 / 名前: たろう
   { type: "person_name", re: /(?:氏名|名前|お名前)\s*[:：]\s*[一-鿿ぁ-ゟ゠-ヿ]{2,8}/ },
-  // Common Japanese surnames (dictionary), catches unlabeled full names like 山田太郎
-  { type: "person_name", re: /(?:山田|田中|鈴木|佐藤|高橋|渡辺|伊藤|中村|小林|加藤|吉田|山本)/ },
 ];
 
 /** Scan free text for real PII values. Does not mask; reports which types were found. */

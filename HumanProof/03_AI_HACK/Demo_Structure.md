@@ -1,35 +1,29 @@
 # Demo Structure — under 3 minutes
 
-## 0:00–0:20 Problem
+## 0:00–0:28 IAMmeアカウントと属性確認
 
-18+ communityが氏名、生年月日、住所、ID photoを要求している状態を表示。
+IAMmeのデモアカウントを作り、Demo Trusted Issuerで`over_18` / `human_verified`の元確認を操作する。元確認のみ模擬と明示。
 
-## 0:20–0:55 AI analysis
+## 0:28–0:48 NIGHT SCREENで選ぶ
 
-OrcaRouter経由で分析し、次を表示。
+架空の18歳以上向け映像作品ECで、身分証アップロードではなく`IAMmeで証明する`を選ぶ。
 
-- Stated purpose: adult eligibility + human verification
-- Minimum proof: over_18 + human_verified
-- Potentially unnecessary for the stated purpose: 4 data items
-- Assumptions / clarification if any
+## 0:48–1:35 共有確認、同意、署名、検証
 
-## 0:55–1:15 Before / After
+`4 pieces of personal data → 2 proofs`を示し、共有する2 Proofと渡さない4項目を確認して明示同意。短命Proofを実APIで発行・検証する。
 
-`4 pieces of personal data → 2 proofs` を大きく表示。
+## 1:35–1:53 購入完了
 
-## 1:15–1:45 Consent and issue
+NIGHT SCREENへ戻り、`VALID`と「購入が完了しました」を表示する。
 
-ユーザーが共有内容と非共有PIIを確認し、明示同意。短命Proofを発行。
+## 1:53–2:23 AI Policy Studio
 
-## 1:45–2:15 Verify and revoke
+AIは購入時ではなく導入時に使うことを説明。OrcaRouter経由の分析で、実model / latency / request ID / cost or dashboard reference、identity data sent to AI = 0を表示。
 
-署名、Issuer、audience、expiry、revocationを検証。失効後に `REVOKED`。
+## 2:23–2:43 失効と再検証
 
-## 2:15–2:40 OrcaRouter audit
+保有者へ返された秘密コードで失効し、同じProofの再検証で`REVOKED`を表示。
 
-実model / latency / request ID / cost or dashboard reference、identity data sent to AI = 0 を表示。
+## 2:43–3:00 境界とFuture
 
-## 2:40–3:00 Future and caveat
-
-Agent authorizationへのFutureを一枚で示す。Demo Issuer、企業ニーズ未検証、AIは法務判断をしないことを明記。
-
+実装済み／模擬／構想・未実装を分け、Agent authorizationへのFutureを一枚で示す。

@@ -1,9 +1,16 @@
 # HumanProof 現行正本
 
-**Version:** 2.0  
-**Updated:** 2026-08-11  
+**Version:** 2.1
+**Updated:** 2026-08-13
 **Status:** AI HACK 2026 MVP仕様。企業ニーズ・市場性は未検証。  
 **Owner:** 参加者本人（非エンジニアのマーケター、1人チーム）
+
+## 0. 名称と正本のスコープ
+
+- **IAMme** は、本人性・属性証明・権限・同意・期限・失効を扱い、人・組織・アバター・AI Agentまで拡張し得る長期プロダクト／構想の名称。公開サイトの上位ブランドと将来像の主語はIAMmeとする。
+- **HumanProof** は、AI HACK 2026で実装・提出するPoC名。IAMmeのNOWに位置する最初の実証であり、IAMmeの代替名称ではない。
+- 本書はHumanProof PoCの製品・技術正本である。公開サイトのページ分割、名称表示、体験導線は [`RELEASE_EXPERIENCE_CANON.md`](RELEASE_EXPERIENCE_CANON.md) に従う。
+- 提出上すでにHumanProof名を使用している資料・API・ディレクトリ・PoCロゴは維持してよい。サイト全体の長期ブランドまでHumanProofへ置換しない。
 
 ## 1. 一言定義
 
@@ -113,20 +120,26 @@ HumanProof自身を信用の根源にしない。MVPでは `Demo Trusted Issuer`
 
 ## 7. AI HACK MVP
 
-代表ユースケースは18歳以上限定オンラインコミュニティ。
+代表ユースケースは、架空の18歳以上向け映像作品EC `NIGHT SCREEN`での購入である。
 
-実装する一本道:
+一般利用者向けGuided Demo（`/demo`）:
 
-1. Demo Issuerから `human_verified`、`over_18`、`unique_person` が発行済み
-2. サービスが目的と現在要求中のデータを入力
-3. OrcaRouter経由でAI分析
-4. 目的、最小Proof、過剰要求候補、前提を表示
-5. サービスがProof Requestを作成
-6. ユーザーが共有内容を確認して明示同意
-7. audience-bound・短命のSigned Proofを発行
-8. サービスが署名、Issuer、audience、期限、失効を検証
-9. Proofを失効し、再検証で `REVOKED` を表示
-10. 実際のOrcaRouter model / latency / request ID / cost参照先をAuditで表示
+1. IAMmeのデモアカウントを作成する
+2. Demo Trusted Issuerで `human_verified` と `over_18` の元確認を完了する（元確認のみ模擬）
+3. 確認済みProofがIAMmeへ追加された状態でNIGHT SCREENへ進む
+4. `IAMmeで証明する` を選び、共有する2 Proofと渡さない4項目を確認する
+5. 明示同意後、audience-bound・短命のSigned Proofを発行する
+6. NIGHT SCREENが署名、Issuer、audience、期限、失効を検証し、`VALID`で購入を完了する
+7. 発行時に保有者へ返した秘密コードでProofを失効し、再検証で `REVOKED` を表示する
+
+サービス導入者向けAI Policy Studio（`/studio`）:
+
+1. サービスが目的と現在要求中のデータカテゴリを入力する
+2. OrcaRouter経由でAI分析する
+3. 目的、最小Proof、potentially unnecessary候補、前提を表示する
+4. 実際のOrcaRouter model / latency / request ID / cost参照先をAuditで表示する
+
+購入・利用時は保存済みPolicyを使い、利用者ごとにLLMを呼ばない。
 
 固定Claim Catalog:
 

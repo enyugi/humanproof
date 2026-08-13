@@ -33,6 +33,13 @@ describe("piiShield.scanForPii (FR-02 / NFR-01 / NFR-02)", () => {
   it("detects a labeled Japanese full name (氏名：山田太郎)", () => {
     expect(scanForPii("氏名：山田太郎 を確認します。").clean).toBe(false);
   });
+  it("does not treat a common surname inside an organization or building name as a person", () => {
+    expect(scanForPii("佐藤商店の会員登録で年齢を確認します。").clean).toBe(true);
+    expect(scanForPii("山本ビルの入館サービスです。").clean).toBe(true);
+  });
+  it("still detects a Japanese name when an honorific supplies person context", () => {
+    expect(scanForPii("山田さんの年齢を確認します。").clean).toBe(false);
+  });
   it("detects a dictionary-less English name by context", () => {
     expect(scanForPii("The applicant Kingsley must be verified before entry.").clean).toBe(false);
   });

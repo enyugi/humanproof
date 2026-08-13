@@ -1,99 +1,122 @@
-# HumanProof
+# IAMme / HumanProof
 
-> Turn identity requests into minimum proof.
+**IAMme**は、本人性、属性、権限、同意、期限、失効を扱う長期的なTrust Layer構想です。**HumanProof**は、そのNOWに位置するAI HACK 2026向けPoCです。
 
-AI HACK 2026 MVP. Compares a service's stated purpose with the personal data it currently
-requests, and recommends the minimum proof. This repository contains both the **spec** and the **app**.
+> 本人情報の要求を、必要最小限の証明へ。
 
-- **Spec (正本):** [`HumanProof/`](HumanProof/) — start at [`HumanProof/README.md`](HumanProof/README.md).
-  Requirements: [`HumanProof/04_DEVELOPMENT/Requirements.md`](HumanProof/04_DEVELOPMENT/Requirements.md).
-- **App:** Next.js (App Router, TypeScript). Implemented:
-  1. **AI analysis slice** — input → analysis → recommendation, with the PII shield, structured-output
-     validation, and server-side policy enforcement.
-  2. **Proof lifecycle** — review → signed **quote** (server confirms the set) → **explicit consent** →
-     Signed Proof (Ed25519, audience-bound, server-fixed short TTL, pairwise subject) → verify
-     (signature/issuer/audience/expiry/revocation, strict bounded payload) → revoke (by the holder's
-     secret code) → re-verify shows `REVOKED`.
+## 体験する
 
-### Proof security model & demo constraints (honest framing)
+- `/` — IAMmeとHumanProofの関係、仕組み、実装境界、未来像
+- `/demo` — 18歳以上向けEC「NIGHT SCREEN」の購入でHumanProofを使うGuided Demo
+- `/studio` — サービス導入者向けAI Policy StudioとOrcaRouter監査
 
-- **Custom token format** — a compact `base64url(json).base64url(sig)` token, **not** JWT/JWS/VC or any standard.
-- **Demo Trusted Issuer is simulated** — it holds a real Ed25519 keypair but performs no real identity verification.
-- **Signing key is a per-install secret** — from `PROOF_ISSUER_SEED`, else a **random** seed generated on first run and
-  persisted to a gitignored local state file (`.humanproof/`, mode `0600`). It is **never hardcoded in source**, so reading
-  the repo does not reveal it; it is stable across restarts. An invalid `PROOF_ISSUER_SEED` is rejected (no silent fallback). Not an HSM.
-- **Quote ≠ consent** — the quote proves the *server confirmed a selection*; issuance additionally requires an *explicit
-  consent act*. A proof can never differ in audience/claims from the reviewed quote. **Quotes are single-use.**
-- **Server-owned TTL** — clients cannot set the lifetime; proofs are always short-lived (≤ policy), enforced at issue and verify.
-- **Strict, bounded verification** — even with a valid signature, verification rejects unknown issuers, wrong `typ`,
-  allowlist-violating/empty/duplicate claims, over-long fields, oversized tokens, inverted/over-long lifetimes, and future `iat`.
-- **Revocation authority** — a secret **revocation code** returned only to the holder at issue; the proof token does not
-  contain it, so a Verifier merely shown the proof **cannot** revoke it.
-- **Fail-closed persistence** — the state file (secret seed + revocation) uses atomic writes (temp + fsync + rename, `0600`)
-  and is validated on load (shape, size cap). If it cannot be read/written or is corrupt, the store is **unavailable** and
-  the system fails closed. Response shapes are consistent:
-  - **issue / revoke** (mutating) → HTTP **`503`** (no false success);
-  - **verify** (read) → HTTP `200` with structured **`REVOCATION_UNAVAILABLE`** (never `VALID`), and it never surfaces an
-    unhandled exception even with no env seed + a corrupt file.
+### Guided Demo
 
-  Revocation is persisted, so a revoked in-TTL proof stays `REVOKED` across a real process restart.
-  `PROOF_PERSIST=off` is an explicit ephemeral (in-memory) mode. Local single-process store — not a durable/replicated DB.
-- **Safe upgrade of an existing state file** — a legacy file (`{seedHex,revoked,revAuth}`, mode `0644`, no `v`/`usedQuotes`)
-  is **migrated in place** on load to the current format with `0600` perms, preserving the issuer seed and all in-TTL
-  revocations / revocation authority. Migration uses the same atomic write, so a mid-write failure leaves the old file
-  intact and fails closed — the state file is never deleted to "recover".
+架空の18歳以上向け映像作品EC`NIGHT SCREEN`で、次の流れを操作できます。デモ内でIAMmeアカウントを作り、Demo Trusted Issuerによる属性確認も操作します。属性の元確認だけは模擬です。
 
-## Run
+1. IAMmeのデモアカウントを作る
+2. Demo Trusted Issuerで属性確認を完了する（元確認は模擬）
+3. NIGHT SCREENで`IAMmeで証明する`を選ぶ
+4. 共有する2つのProofと、共有しない4項目を確認
+5. 明示同意後、署名付きProofを発行
+6. NIGHT SCREENが検証し`VALID`、購入完了
+7. 発行時に保有者へ返された秘密コードでProofを失効
+8. 再検証し`REVOKED`
+
+共有するProof:
+
+- `over_18`
+- `human_verified`
+
+NIGHT SCREENへ渡さない項目:
+
+- 氏名
+- 正確な生年月日
+- 住所
+- 身分証画像
+
+Proofも個人に関する属性です。HumanProofは匿名化や「個人情報ゼロ」を主張しません。開示を目的に必要な範囲へ絞ります。
+
+## AIの役割
+
+定型の18歳確認だけならルールで実装できます。
+
+HumanProofがAIを使うのは、利用者の購入・利用時ではなく、サービス導入時のPolicy設計です。自然言語で書かれた複数目的や曖昧な規約文を読み、許可済みClaim Catalogへ制約されたPolicy案へ変換します。
+
+- 本人情報の実値を検出した入力はAI送信前にブロック
+- AIへ送るのはサービス目的文と正規化されたカテゴリ名
+- AI出力は固定Claim Catalogとschemaで制約
+- 根拠が足りない場合は自動採用せずclarificationへ戻す
+- 購入・利用時は保存済みPolicyを使い、LLMを呼ばない
+
+分析は`/studio`からOrcaRouter経由で実行し、source / resolved model / latency / request IDをactual-onlyの監査情報として表示します。costがレスポンスに無い場合は作りません。
+
+## Proofの実装
+
+- Ed25519署名
+- audience-bound Proof
+- audienceごとのpairwise subject
+- 明示同意と単回使用quote
+- サーバ固定の短い有効期限
+- signature / issuer / audience / expiry / revocationの独立検証
+- 発行時に保有者だけへ返す秘密revocation code
+- fail-closed永続
+
+独自のコンパクトtoken形式であり、JWT / JWS / DID / VC準拠を主張しません。
+
+## 実装境界
+
+### 実装済み
+
+- OrcaRouter分析と監査情報
+- PII ShieldとClaim制約
+- 明示同意
+- 署名、検証、期限、失効、再検証
+- fail-closed
+
+### 模擬
+
+- NIGHT SCREEN
+- Demo Trusted Issuerによる`over_18` / `human_verified`の元確認
+
+### 構想・未実装
+
+- 実eKYC / JPKI
+- 複数Trusted Issuer
+- 永続的な同意管理と再提示停止
+- Verified Avatar / Creator / Organization / Worker
+- Human + AI Agent Trust
+- DID / VC完全準拠
+
+## ローカル実行
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+npm run dev
 ```
 
-The page is a **guided one-path demo** with a progress rail (Analyze → Proof request → Consent → Issue → Verify → Revoke).
-Keep the prefilled 18+ demo and follow the steps:
+通常は`http://localhost:3000`で起動します。
 
-1. **Analyze** → `4 pieces of personal data → 2 proofs`.
-2. **Create Proof Request**, tick **consent**, **Issue Signed Proof**.
-3. **Verify as the service** → `VALID`.
-4. **Revoke** → the same proof re-verifies as `REVOKED`.
+実OrcaRouterを使う場合は`.env.local.example`を参考に`ORCAROUTER_API_KEY`をサーバ側へ設定してください。キーがない場合、AI Policy Studioは明示されたMOCK providerを使用します。Guided DemoのProof lifecycleはAI providerと独立しています。
 
-Deep technical evidence (Zero-PII audit, OrcaRouter metadata, signature checks, proof internals) is one click away under
-each step's *Technical details* toggle, so the happy path stays legible. `MOCK` vs real OrcaRouter is shown before you analyze.
-
-## OrcaRouter (LLM gateway)
-
-Without a key the app uses a **MOCK** provider — a deterministic rule-based analyzer, clearly
-labelled `MOCK` in the UI (before analysis) and in the audit panel; it never presents fabricated
-"actual" metadata. To use the real gateway, copy `.env.local.example` to `.env.local` and set
-`ORCAROUTER_API_KEY`. OrcaRouter exposes an **OpenAI-compatible** chat completions API at
-`https://api.orcarouter.ai/v1` (default model `orcarouter/auto`). The key is server-side only;
-the same validation + policy pipeline applies unchanged.
-
-**Timeouts & the live-demo default (measured 2026-08-11).** Each upstream call has a finite timeout
-(default 12s) and the whole analysis has a 20s deadline; on timeout the API returns a structured
-`504` (`retriable:true`), on an upstream HTTP error `502`, and on client disconnect `499` — never a
-hang. A one-shot real connectivity test found OrcaRouter **reachable and functional but ~55s average
-latency**, which exceeds the deadline, so real Analyze currently returns `504`. Note that aborting
-the request does **not** cancel the upstream work — it still completes and bills. **For the live
-demo, keep the labelled `MOCK` provider by default**; treat the real connection as latency evidence
-until the deadline is raised or gateway latency improves. Zero-PII holds regardless (only the prompt
-and category names are sent). See DECISIONS D-030.
-
-## Quality gates
+## 品質ゲート
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm test            # vitest (Delta §7 tests A–F + units)
-npm run lint        # eslint (next)
-npm run build       # next build
+npm run typecheck
+npm test
+npm run lint
+npm run build
 ```
 
-## What is enforced (see Requirements.md)
+現行実装では91テストがgreenです。
 
-- **Zero PII to LLM** — if real values are detected in the purpose text the request is **blocked** (not sent) so the user can remove them; only the PII-shield-passed service-purpose text and canonical category names are sent (FR-02, NFR-01/02). The heuristic shield detects, it does not guarantee absence.
-- **Deterministic counting** — requested data is normalized + de-duplicated; `N pieces` is the distinct count (FR-04, D-028).
-- **Server-side policy** — claims restricted to the fixed allowlist, required/optional disjoint, flags limited to detected items, prohibited determinations neutralized (FR-05/07/14).
-- **Actual-only audit** — no fabricated model/cost/logs; MOCK is labelled as MOCK (FR-12, NFR-07).
-- **Signed Proof** — real Ed25519 signatures from a simulated Demo Trusted Issuer; audience-bound,
-  short-lived, pairwise pseudonymous subject; consent-gated; revocable (FR-08/09/10/11/13, D-008/09).
+## 正本と提出資料
+
+- 正本: `HumanProof/00_MASTER/`
+- 要件: `HumanProof/04_DEVELOPMENT/Requirements.md`
+- 提出原稿一式: `submission/`
+- 提出前チェック: `docs/release-readiness.md`
+
+### 旧検討資料について
+
+`chatgpt-rework/`と`HumanProof/99_REFERENCE/`は、現在の体験・実装設計を確定する前の検討ログ／出典保存です。現行仕様として使用しません。最新の仕様は`HumanProof/00_MASTER/`、提出内容は`submission/`を参照してください。
