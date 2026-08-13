@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { REQUESTED_DATA_CATEGORIES, type RequestedDataCategory, type Claim } from "@/lib/claims";
 import { DEMO_USER_WITHHELD_PII } from "@/lib/proof/demoUser";
 import { DICT, LANG_SWITCH_LABEL, OTHER_LANG, SCENARIOS, catLabel, claimLabel, type Lang, type Scenario } from "@/lib/i18n";
+import HowItWorks from "./components/HowItWorks";
+import FutureVision from "./components/FutureVision";
 
 interface ProofSummary {
   issuer: string;
@@ -308,75 +310,32 @@ export default function Page() {
       </div>
 
       <header className="hero">
-        <div className="herowrap">
-          <div className="herocopy">
-            <h1 className="herohead">
-              {lang === "ja" ? (
-                <>
-                  <span className="nowrap">本人情報の要求を、</span>
-                  <span className="nowrap"><span className="accent">必要最小限の証明</span>に。</span>
-                </>
-              ) : (
-                <>
-                  <span className="nowrap">Turn identity requests</span>{" "}
-                  <span className="nowrap">into <span className="accent">minimum proof</span>.</span>
-                </>
-              )}
-            </h1>
-            <p className="lead">{t.heroBenefit}</p>
-            <a className="cta" href="#demo">{t.heroCta} ↓</a>
-          </div>
-          <div className="herovisual" aria-hidden="true">
-            <div className="hv-card hv-over">
-              <span className="hv-h">{t.hvOver}</span>
-              <ul>
-                {(["full_name", "exact_birth_date", "address", "id_photo"] as const).map((c) => (
-                  <li key={c}>
-                    <span className="hv-lbl">{catLabel(lang, c)}</span>
-                    <span className="hv-bar" />
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="hv-arrow">
-              <span className="hv-cap">{t.hvCap}</span>
-              <span className="hv-glyph">↓</span>
-            </div>
-            <div className="hv-card hv-only">
-              <span className="hv-h">{t.hvOnly}</span>
-              <ul>
-                {(["over_18", "human_verified"] as const).map((c) => (
-                  <li key={c} className="hv-proof">
-                    <span className="hv-tick">✓</span>
-                    {claimLabel(lang, c)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        <div className="herocopy">
+          <h1 className="herohead">
+            {lang === "ja" ? (
+              <>
+                <span className="nowrap">本人情報の要求を、</span>
+                <span className="nowrap"><span className="accent">必要最小限の証明</span>に。</span>
+              </>
+            ) : (
+              <>
+                <span className="nowrap">Turn identity requests</span>{" "}
+                <span className="nowrap">into <span className="accent">minimum proof</span>.</span>
+              </>
+            )}
+          </h1>
+          <p className="lead">{t.heroBenefit}</p>
+          <a className="cta" href="#demo">{t.heroCta} ↓</a>
         </div>
       </header>
 
-      {/* concise value strip — user benefit / service / why AI, one line each */}
-      <section className="valuestrip">
-        <div className="vs-item vs-user">
-          <span className="vs-t">{t.stripUserT}</span>
-          <p>{t.stripUser}</p>
-        </div>
-        <div className="vs-item">
-          <span className="vs-t">{t.stripServiceT}</span>
-          <p>{t.stripService}</p>
-        </div>
-        <div className="vs-item">
-          <span className="vs-t">{t.stripAiT}</span>
-          <p>{t.stripAi}</p>
-        </div>
-      </section>
+      <HowItWorks lang={lang} />
 
       <section id="demo" className="demo">
         <h2 className="demo-title">{t.demoTitle}</h2>
         <p className="demo-lead">{t.demoLead}</p>
         <p className="userstory">{t.userStory}</p>
+        <p className="demowho">{t.demoWho}</p>
 
       {providerMode && (
         <div className={isMock ? "banner" : "banner ok-banner"}>
@@ -702,6 +661,12 @@ export default function Page() {
               <p className="note" style={{ textAlign: "center" }}>
                 {verify.status === "VALID" ? t.verifyNoteValid : verify.status === "REVOKED" ? t.verifyNoteRevoked : t.verifyNoteFail}
               </p>
+              {(verify.status === "VALID" || verify.status === "REVOKED") && (
+                <div className="payoff">
+                  <p className="payoff-title">{t.payoffTitle}</p>
+                  <p className="payoff-body">{t.payoffBody}</p>
+                </div>
+              )}
               <details className="tech">
                 <summary>{t.independentChecks}</summary>
                 <div className="audit">
@@ -718,6 +683,8 @@ export default function Page() {
         </>
       )}
       </section>
+
+      <FutureVision lang={lang} />
 
       <footer className="foot">{t.disclaimerTop}</footer>
     </div>

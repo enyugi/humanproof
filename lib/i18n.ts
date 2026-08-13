@@ -179,6 +179,9 @@ export interface Dict {
   userStory: string;
   youShareNot: string;
   youShareNotSub: string;
+  demoWho: string;
+  payoffTitle: string;
+  payoffBody: string;
 }
 
 export interface Scenario {
@@ -370,6 +373,9 @@ export const DICT: Record<Lang, Dict> = {
     userStory: "あなたが、あるサービスに登録しようとしています。HumanProof が“あなたの代わりに”、必要な証明だけを渡します。",
     youShareNot: "あなたが渡さないもの",
     youShareNotSub: "サービスには渡りません。あなたの手元に残ります。",
+    demoWho: "入力は「🏢 サービスの要求（例）」です。あなた（利用者）は氏名や身分証などの生データを一切入力しません。例を選んで操作すると、HumanProof が何をするかを確かめられます。",
+    payoffTitle: "🎉 これがあなたの得たもの",
+    payoffBody: "あなたは氏名・住所・身分証を1つも渡さず、「18歳以上の実在の人」であることだけを証明。サービスは必要な証明だけを受け取り、検証も失効もできる。過剰取得と管理リスクを最小限に抑えられました。",
   },
   en: {
     brand: "HumanProof",
@@ -519,5 +525,8 @@ export const DICT: Record<Lang, Dict> = {
     userStory: "You're about to sign up for a service. HumanProof hands over — on your behalf — only the proof that's actually needed.",
     youShareNot: "What you never hand over",
     youShareNotSub: "The service never receives these. They stay with you.",
+    demoWho: "The input is a service's request (an example). You (the user) never type any raw data like your name or ID. Pick an example and step through it to see what HumanProof does.",
+    payoffTitle: "🎉 What you just got",
+    payoffBody: "Without handing over your name, address or ID, you proved only that you're a real person over 18. The service received just the proof it needs and can verify or see it revoked — over-collection and mishandling risk kept to a minimum.",
   },
 };
