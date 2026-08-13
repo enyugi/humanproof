@@ -6,9 +6,11 @@
 
 ## 体験する
 
-- `/` — IAMmeとHumanProofの関係、仕組み、実装境界、未来像
-- `/demo` — 18歳以上向けEC「NIGHT SCREEN」の購入でHumanProofを使うGuided Demo
-- `/studio` — サービス導入者向けAI Policy StudioとOrcaRouter監査
+- [IAMme / HumanProof](https://humanproof.onrender.com/) — 関係、仕組み、実装境界、未来像
+- [Guided Demo](https://humanproof.onrender.com/demo) — 18歳以上向けEC「NIGHT SCREEN」の購入でHumanProofを試す
+- [AI Policy Studio](https://humanproof.onrender.com/studio) — サービス導入者向けPolicy設計とOrcaRouter監査
+- [3分デモ動画](https://youtu.be/Zr59tJ3ceO4) — YouTube限定公開
+- [Zenn記事](https://zenn.dev/enyugi/articles/b5a703567eec46) — 設計意図、AIの役割、実装境界
 
 ### Guided Demo
 

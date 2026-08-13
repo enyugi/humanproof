@@ -9,7 +9,7 @@
 - [x] 実OrcaRouterで酒類宅配の代表入力を実行し、`source=ORCAROUTER`、`response_model=gpt-4o-mini-2024-07-18`、`latency=5151ms`、request IDを確認
 - [x] 実デモ画面から3分以内の720p動画を生成
 - [x] 動画をYouTube限定公開し、URL `https://youtu.be/Zr59tJ3ceO4` を確定
-- [ ] QiitaまたはZennへ記事を公開し、URLを確定
+- [x] Zenn記事を公開し、URL `https://zenn.dev/enyugi/articles/b5a703567eec46` を確定
 - [x] 公開前の秘密情報監査後にリポジトリをpublic化
 - [ ] 提出フォームへ最終URLを入力し、期限前に送信
 

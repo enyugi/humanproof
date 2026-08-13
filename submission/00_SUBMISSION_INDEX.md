@@ -27,7 +27,7 @@ GitHub公開用READMEはリポジトリ直下の `README.md` を使用する。
 - AI Policy Studio: `https://humanproof.onrender.com/studio`
 - 公開リポジトリ: `https://github.com/enyugi/humanproof`
 - デモ動画: `https://youtu.be/Zr59tJ3ceO4`（YouTube限定公開）
-- Qiita / Zenn: 公開後に記入
+- Zenn: `https://zenn.dev/enyugi/articles/b5a703567eec46`
 
 ## 全提出物で固定する事実
 
