@@ -7,33 +7,33 @@ const L = {
     title: "HumanProof の仕組み",
     problem1: "サービスは本人情報を取りすぎる。しかも渡した先が、その情報を適切に管理してくれるかは分からない——それが不安。",
     problem2: "HumanProof は“あなたの代わりに”、目的に必要な証明だけを渡す。",
-    you: "🙋 あなた", service: "🏢 サービス", ai: "🤖 HumanProof AI",
-    step1: "① 🏢 サービスが求める（例：18歳以上のSNS）",
+    you: "あなた", service: "サービス", ai: "HumanProof AI",
+    step1: "01 サービスが求める（例：18歳以上のSNS）",
     fName: "氏名", fBirth: "生年月日", fAddr: "住所",
     docsLabel: "身分証の画像も要求：", license: "運転免許証", mynumber: "マイナンバーカード",
     overAsk: "4種の情報・書類を要求（過剰）",
-    step2: "② 🤖 AI が最小化", shieldA: "目的に必要な", shieldB: "証明だけに絞る", shieldSub: "生データは渡さない",
-    step3: "③ 🏢 サービスが受け取るのはこれだけ", proofA: "18歳以上", proofB: "実在する人間",
-    keepTitle: "🔒 あなたに残る（渡さない）", keepItems: ["氏名", "住所", "生年月日", "運転免許証", "マイナンバー"],
+    step2: "02 AI が最小化", shieldA: "目的に必要な", shieldB: "証明だけに絞る", shieldSub: "本人情報の実値はAIへ送らない",
+    step3: "03 サービスが受け取るのはこれだけ", proofA: "18歳以上", proofB: "実在する人",
+    keepTitle: "あなたに残る（渡さない）", keepItems: ["氏名", "正確な生年月日", "住所", "身分証画像"],
     keepSub: "サービスには渡らない・漏洩の心配も減る",
     bannerTitle: "あなたのデータは、あなたのもの。",
-    bannerBody: "氏名も住所も身分証も渡さず「18歳以上の実在の人」であることだけを証明。渡しすぎも、渡した先の管理リスクも最小限に。いつでも自分で失効できる。",
+    bannerBody: "氏名も住所も身分証画像もサービスへ渡さず「18歳以上の実在の人」であることだけを証明。渡しすぎと、渡した先の管理リスクを最小限に抑えます。発行時に保有者へ返した秘密コードでProofを失効できます。",
   },
   en: {
     title: "How HumanProof works",
     problem1: "Services collect too much personal data — and you can't be sure the service will look after it. That's the worry.",
     problem2: "HumanProof hands over, on your behalf, only the proof the purpose needs.",
-    you: "🙋 You", service: "🏢 Service", ai: "🤖 HumanProof AI",
-    step1: "① 🏢 A service asks (e.g. an 18+ social app)",
+    you: "You", service: "Service", ai: "HumanProof AI",
+    step1: "01 A service asks (e.g. an 18+ social app)",
     fName: "Full name", fBirth: "Date of birth", fAddr: "Address",
     docsLabel: "…and photos of your ID:", license: "Driver's license", mynumber: "My Number card",
     overAsk: "4 kinds of data / documents (over-asking)",
-    step2: "② 🤖 AI minimizes", shieldA: "Keep only the proof", shieldB: "the purpose needs", shieldSub: "raw data never sent",
-    step3: "③ 🏢 The service receives only this", proofA: "Over 18", proofB: "A real person",
-    keepTitle: "🔒 Stays with you (never shared)", keepItems: ["Full name", "Address", "Date of birth", "Driver's license", "My Number"],
-    keepSub: "Never reaches the service — far less to leak",
+    step2: "02 AI minimizes", shieldA: "Keep only the proof", shieldB: "the purpose needs", shieldSub: "identity values are not sent to AI",
+    step3: "03 The service receives only this", proofA: "Over 18", proofB: "A real person",
+    keepTitle: "Stays with you (not sent to the service)", keepItems: ["Full name", "Exact date of birth", "Address", "ID image"],
+    keepSub: "Not sent to the service, reducing the data it must manage",
     bannerTitle: "Your data stays yours.",
-    bannerBody: "Without handing over your name, address or ID, you prove only that you're a real person over 18. Over-collection and the risk of mishandling are kept to a minimum — and you can revoke anytime.",
+    bannerBody: "Without sending your name, address or ID image to the service, you prove only that you're a real person over 18. The holder can revoke the proof with the secret code returned at issue.",
   },
 } as const;
 
@@ -122,7 +122,6 @@ export default function HowItWorks({ lang }: { lang: Lang }) {
       </div>
 
       <div className="hiw-banner">
-        <span className="hiw-banner-emoji" aria-hidden="true">🙋</span>
         <div>
           <p className="hiw-banner-title">{t.bannerTitle}</p>
           <p className="hiw-banner-body">{t.bannerBody}</p>

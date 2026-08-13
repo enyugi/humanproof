@@ -9,7 +9,7 @@ const L = {
     nowBadge: "実装済（このPoC）",
     futureBadge: "構想・未実装",
     nowTitle: "NOW ― 本人情報の最小化",
-    nowBody: "人向けに、必要以上の本人情報を渡さず「実在する人間」「18歳以上」などの証明だけを提示する（今回のPoC）。",
+    nowBody: "人向けに、必要以上の本人情報を渡さず「実在する人」「18歳以上」などの証明だけを提示する（今回のPoC）。",
     nextTitle: "NEXT ― 信頼の輪を広げる",
     nextItems: [
       "複数の Trusted Issuer / 実 eKYC・公的ID との接続",
