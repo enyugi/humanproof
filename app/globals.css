@@ -16,12 +16,12 @@
   --accent: #0e9b6b;        /* proof / verified / minimal */
   --accent-ink: #04371f;
   --accent-soft: #e4f5ee;
-  --warn: #b06a12;
-  --warn-soft: #fbf0dd;
+  --warn: #6b7280;         /* muted grey (was amber) — keep the palette to ink+green+grey */
+  --warn-soft: #eef0f4;
   --danger: #c53b31;
   --danger-soft: #fbe7e5;
-  --brand: #3f52d9;         /* confident indigo (not github-blue) */
-  --brand-soft: #eaedfc;
+  --brand: #12151d;         /* ink (was indigo) — accents collapse to black; green is the only color */
+  --brand-soft: #eceef3;
   --redact: #12151d;
   --shadow: 0 1px 2px rgba(19, 23, 34, 0.06), 0 8px 24px rgba(19, 23, 34, 0.06);
   --shadow-sm: 0 1px 2px rgba(19, 23, 34, 0.06);
@@ -54,7 +54,24 @@ body {
   content: ""; width: 12px; height: 12px; border-radius: 3px;
   background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.brandmark .tag { color: var(--brand); font-weight: 600; font-size: 13px; letter-spacing: 0.01em; }
+.brandmark .tag { color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: 0.01em; }
+
+/* ---------- voice badges: who is speaking (service / AI / you) ---------- */
+.voice {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.02em; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong);
+  color: var(--muted); background: var(--surface-2); margin-bottom: 10px;
+}
+.voice-you { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
+.voice-ai { color: var(--ink); background: var(--surface-2); border-color: var(--border-strong); }
+.voice-service { color: var(--muted); background: var(--surface-2); border-color: var(--border-strong); }
+
+/* ---------- "what you DON'T hand over" — the user's privacy win ---------- */
+.youkeep { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+.youkeep .yk-h { font-weight: 700; color: var(--accent-ink); font-size: 14px; }
+.youkeep .yk-items { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.youkeep .yk-items li { font-size: 13.5px; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent); }
+.youkeep .yk-sub { color: var(--accent-ink); font-size: 12.5px; margin-top: 8px; font-weight: 600; }
 .langtoggle {
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink-2);
   border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;

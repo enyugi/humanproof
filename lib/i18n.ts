@@ -172,6 +172,13 @@ export interface Dict {
   stripAi: string;
   demoTitle: string;
   demoLead: string;
+  // user-first reframe: voices + story + privacy win
+  voiceService: string;
+  voiceAi: string;
+  voiceYou: string;
+  userStory: string;
+  youShareNot: string;
+  youShareNotSub: string;
 }
 
 export interface Scenario {
@@ -226,7 +233,7 @@ export const DICT: Record<Lang, Dict> = {
     providerMockLead: "MOCK プロバイダ動作中。",
     providerMockTail: "は実モデル呼び出しではない決定論的な規則ベース分析です。実 OrcaRouter 分析には ORCAROUTER_API_KEY を設定。",
     steps: ["分析", "証明リクエスト", "同意", "発行", "検証", "失効"],
-    reqTitle: "1・サービスの要求",
+    reqTitle: "サービスがあなたに求めているもの",
     reqIntro: "サービスが求めるものを書くと、HumanProof の AI が目的を満たす最小の証明を提案します。",
     serviceName: "サービス名",
     audienceSlug: "宛先 / slug",
@@ -238,7 +245,7 @@ export const DICT: Record<Lang, Dict> = {
     analyzeMock: "分析する（MOCK）",
     analyzeReal: "OrcaRouter で分析する",
     requestedToggle: (n) => `現在要求中のデータ — ${n} 件選択（編集）`,
-    resultTitle: "2・最小の証明",
+    resultTitle: "AI の見立て",
     nextTimeout: "次に: 数秒待ってから、もう一度「分析する」を押してください。",
     nextInput: "次に: 目的文を確認して、もう一度「分析する」を押してください。",
     blockedLead: "AI に送る前にブロックしました。",
@@ -248,13 +255,13 @@ export const DICT: Record<Lang, Dict> = {
     headlineFrom: "件の個人情報",
     headlineTo: "件の証明",
     headlineSub: (n) => `サービスは ${n} 件の個人情報を集めなくても、必要なことを確認できます。`,
-    statedPurpose: "記述された目的",
+    statedPurpose: "サービスの目的（AI が抽出）",
     noPurpose: "明確な目的は検出されませんでした。",
     currentlyRequested: "現在要求中のデータ",
     none: "なし。",
-    minimumProof: "最小の証明",
+    minimumProof: "あなたが渡す証明",
     optionalSuffix: "（任意 — 目的が必要とする場合のみ追加）",
-    potentiallyUnnecessary: "記述された目的には不要かもしれないデータ",
+    potentiallyUnnecessary: "渡さなくていいもの（AI の指摘）",
     potentiallyUnnecessaryNote:
       "記述された目的からは、これらがなぜ必要か確認できませんでした。法的・不正防止・配送・運用上の目的があれば、この推薦は変わり得ます。",
     noneFlagged: "指摘なし。",
@@ -357,6 +364,12 @@ export const DICT: Record<Lang, Dict> = {
     stripAi: "現実の“生の要求文”から必要／過剰を判定。ルールでは無理。",
     demoTitle: "触って確かめる",
     demoLead: "サービスの要求文を入れると AI が最小の証明を提案。下の例で AI の推論も見られます。",
+    voiceService: "🏢 サービス",
+    voiceAi: "🤖 HumanProof AI",
+    voiceYou: "🙋 あなた",
+    userStory: "あなたが、あるサービスに登録しようとしています。HumanProof が“あなたの代わりに”、必要な証明だけを渡します。",
+    youShareNot: "あなたが渡さないもの",
+    youShareNotSub: "サービスには渡りません。あなたの手元に残ります。",
   },
   en: {
     brand: "HumanProof",
@@ -369,7 +382,7 @@ export const DICT: Record<Lang, Dict> = {
     providerMockLead: "MOCK provider active.",
     providerMockTail: " is a deterministic rule-based analyzer — not a real model call. Set ORCAROUTER_API_KEY for real OrcaRouter analysis.",
     steps: ["Analyze", "Proof request", "Consent", "Issue", "Verify", "Revoke"],
-    reqTitle: "1 · Service requirement",
+    reqTitle: "What the service asks of you",
     reqIntro: "A service says what it wants. HumanProof's AI proposes the smallest proof that still satisfies the purpose.",
     serviceName: "Service name",
     audienceSlug: "Audience / slug",
@@ -381,7 +394,7 @@ export const DICT: Record<Lang, Dict> = {
     analyzeMock: "Analyze (MOCK provider)",
     analyzeReal: "Analyze with OrcaRouter",
     requestedToggle: (n) => `Currently requested data — ${n} selected (edit)`,
-    resultTitle: "2 · Minimum proof",
+    resultTitle: "The AI's read",
     nextTimeout: "Next: wait a few seconds, then click Analyze again.",
     nextInput: "Next: check the purpose text and try Analyze again.",
     blockedLead: "Blocked before sending to AI.",
@@ -391,13 +404,13 @@ export const DICT: Record<Lang, Dict> = {
     headlineFrom: "pieces of personal data",
     headlineTo: "proofs",
     headlineSub: (n) => `The service can confirm what it needs without collecting ${n} personal data item(s).`,
-    statedPurpose: "Stated purpose",
+    statedPurpose: "The service's purpose (extracted by AI)",
     noPurpose: "No clear purpose detected.",
     currentlyRequested: "Currently requested",
     none: "None.",
-    minimumProof: "Minimum proof",
+    minimumProof: "What you hand over",
     optionalSuffix: "(optional — add only if the purpose requires it)",
-    potentiallyUnnecessary: "Potentially unnecessary for the stated purpose",
+    potentiallyUnnecessary: "What you don't need to hand over (AI's flag)",
     potentiallyUnnecessaryNote:
       "We could not confirm why these items are needed from the purpose you described. Additional legal, fraud-prevention, delivery, or operational purposes may change this recommendation.",
     noneFlagged: "None flagged.",
@@ -500,5 +513,11 @@ export const DICT: Record<Lang, Dict> = {
     stripAi: "Decides needed vs. excess from real requirement text. A rule can't.",
     demoTitle: "Try it yourself",
     demoLead: "Enter a service's requirement and the AI proposes the minimum proof. The examples below show the AI reasoning.",
+    voiceService: "🏢 The service",
+    voiceAi: "🤖 HumanProof AI",
+    voiceYou: "🙋 You",
+    userStory: "You're about to sign up for a service. HumanProof hands over — on your behalf — only the proof that's actually needed.",
+    youShareNot: "What you never hand over",
+    youShareNotSub: "The service never receives these. They stay with you.",
   },
 };

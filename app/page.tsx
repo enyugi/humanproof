@@ -376,6 +376,7 @@ export default function Page() {
       <section id="demo" className="demo">
         <h2 className="demo-title">{t.demoTitle}</h2>
         <p className="demo-lead">{t.demoLead}</p>
+        <p className="userstory">{t.userStory}</p>
 
       {providerMode && (
         <div className={isMock ? "banner" : "banner ok-banner"}>
@@ -405,6 +406,7 @@ export default function Page() {
       <div className="grid">
         {/* INPUT */}
         <section className="card">
+          <span className="voice voice-service">{t.voiceService}</span>
           <h2>{t.reqTitle}</h2>
           <p className="note" style={{ marginTop: 0 }}>{t.reqIntro}</p>
 
@@ -450,6 +452,7 @@ export default function Page() {
 
         {/* RESULT */}
         <section className="card">
+          <span className="voice voice-ai">{t.voiceAi}</span>
           <h2>{t.resultTitle}</h2>
 
           {error && (
@@ -503,6 +506,16 @@ export default function Page() {
                 </div>
               </div>
               <p className="subhead">{t.headlineSub(a.data_count)}</p>
+
+              <div className="youkeep">
+                <span className="yk-h">🔒 {t.youShareNot}</span>
+                <ul className="yk-items">
+                  {DEMO_USER_WITHHELD_PII.map((c) => (
+                    <li key={c}>{catLabel(lang, c)}</li>
+                  ))}
+                </ul>
+                <p className="yk-sub">{t.youShareNotSub}</p>
+              </div>
 
               {/* Stated purpose */}
               <h3 className="section-h">{t.statedPurpose}</h3>
@@ -595,6 +608,7 @@ export default function Page() {
         <>
           {/* STEP 3 — Proof request + explicit consent */}
           <section className="stepcard">
+            <span className="voice voice-you">{t.voiceYou}</span>
             <span className="steptag">{t.step3tag}</span>
             <h3>{t.step3title}</h3>
             <p className="note" style={{ marginTop: 0 }}>{t.step3intro}</p>
@@ -643,6 +657,7 @@ export default function Page() {
           {/* STEP 4 — Issued proof */}
           {proof && (
             <section className="stepcard">
+              <span className="voice voice-you">{t.voiceYou}</span>
               <span className="steptag">{t.step4tag}</span>
               <h3>{t.step4title}</h3>
               <p className="note" style={{ marginTop: 0 }}>
@@ -680,6 +695,7 @@ export default function Page() {
           {/* STEP 5/6 — Verification result */}
           {verify && (
             <section className="stepcard">
+              <span className="voice voice-service">{t.voiceService}</span>
               <span className="steptag">{verify.status === "REVOKED" ? t.step6tag : t.step5tag}</span>
               <h3>{verify.status === "VALID" ? t.verifyTitleValid : verify.status === "REVOKED" ? t.verifyTitleRevoked : t.verifyTitleFail}</h3>
               <div className={`verdict ${verify.status === "VALID" ? "ok" : "bad"}`}>{verify.status}</div>
